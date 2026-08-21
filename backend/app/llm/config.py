@@ -10,4 +10,5 @@ class LLMSettings(BaseSettings):
         env_prefix="LLM_",
         env_file=".env",
         protected_namespaces=(),
+        extra="ignore",
     )
