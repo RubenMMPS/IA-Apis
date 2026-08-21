@@ -27,7 +27,7 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
-scratch_test.py
+scratch_*.py
 
 # Logs
 *.log
