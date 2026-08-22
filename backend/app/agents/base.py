@@ -33,6 +33,7 @@ class BaseAgent(ABC):
     tools: list[ToolDefinition] = []
     tool_registry: dict[str, "Tool"] = {}
     max_tool_iterations: int = 5
+    max_output_tokens: int = 2048
 
     def __init__(self, llm: LLMProvider):
         self._llm = llm
@@ -56,12 +57,37 @@ class BaseAgent(ABC):
     def apply_output(self, state: GraphState, output: BaseModel) -> dict:
         ...
 
+    def _compact_schema_hint(self) -> str:
+        schema = self.output_schema().model_json_schema()
+        defs = schema.get("$defs", {})
+
+        def describe(props: dict) -> str:
+            lines = []
+            for name, info in props.items():
+                type_hint = info.get("type", "object")
+                if "$ref" in info:
+                    ref_name = info["$ref"].split("/")[-1]
+                    nested = defs.get(ref_name, {}).get("properties", {})
+                    type_hint = "{" + ", ".join(nested.keys()) + "}"
+                elif info.get("type") == "array":
+                    items = info.get("items", {})
+                    if "$ref" in items:
+                        ref_name = items["$ref"].split("/")[-1]
+                        nested = defs.get(ref_name, {}).get("properties", {})
+                        type_hint = "list of {" + ", ".join(nested.keys()) + "}"
+                    else:
+                        type_hint = f"list of {items.get('type', 'string')}"
+                lines.append(f'  "{name}": {type_hint}')
+            return "{\n" + ",\n".join(lines) + "\n}"
+
+        return describe(schema.get("properties", {}))
+
     def _full_system_prompt(self) -> str:
-        schema_json = json.dumps(self.output_schema().model_json_schema(), ensure_ascii=False)
+        schema_hint = self._compact_schema_hint()
         return (
             f"{self.system_prompt}\n\n"
-            "Debes responder ÚNICAMENTE con un JSON válido que cumpla exactamente "
-            f"este schema, sin texto adicional, sin backticks ni markdown:\n{schema_json}"
+            "Debes responder ÚNICAMENTE con un JSON válido que cumpla esta forma "
+            f"(sin texto adicional, sin backticks):\n{schema_hint}"
         )
 
     async def run(self, state: GraphState) -> dict:
@@ -91,7 +117,7 @@ class BaseAgent(ABC):
         for _ in range(self.max_tool_iterations):
             active_tools = [] if tool_used else self.tools
             response = await self._llm.generate(
-                LLMRequest(messages=conversation, tools=active_tools)
+                LLMRequest(messages=conversation, tools=active_tools, max_tokens=self.max_output_tokens)
             )
 
             if response.tool_calls:
