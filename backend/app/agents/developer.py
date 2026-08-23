@@ -7,6 +7,14 @@ class DeveloperAgent(BaseAgent):
     name = "developer"
     max_output_tokens = 4096
 
+    async def run(self, state: GraphState) -> dict:
+        counts = dict(state.get("iteration_counts", {}))
+        counts["developer"] = counts.get("developer", 0) + 1
+
+        delta = await super().run(state)
+        delta["iteration_counts"] = counts
+        return delta
+
     @property
     def system_prompt(self) -> str:
         return (
@@ -31,7 +39,7 @@ class DeveloperAgent(BaseAgent):
 
         test_results = state.get("test_results")
         if test_results and not test_results.passed:
-            parts.append(f"\nLos tests fallaron en el intento anterior:\n{test_results.details}")
+            parts.append(f"\nLos tests fallaron en el intento anterior:\n{test_results.output}")
 
         review_feedback = state.get("review_feedback")
         if review_feedback and review_feedback.decision == "changes_requested":
