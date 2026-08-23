@@ -7,6 +7,7 @@ from app.graph.state.plan import Plan
 from app.graph.state.research import ResearchFindings
 from app.graph.state.architecture import ArchitectureSpec
 from app.graph.state.code import CodeArtifacts
+from app.graph.state.test_result import TestResult
 
 TaskStatus = Literal["queued", "running", "completed", "failed", "failed_max_retries"]
 
@@ -22,6 +23,7 @@ class GraphState(TypedDict):
     research_findings: Optional[ResearchFindings]
     architecture_spec: Optional[ArchitectureSpec]
     code_artifacts: Optional[CodeArtifacts]
+    test_results: Optional[TestResult]
 
     # Control de flujo
     iteration_counts: dict[str, int]
