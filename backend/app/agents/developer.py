@@ -13,6 +13,7 @@ class DeveloperAgent(BaseAgent):
 
         delta = await super().run(state)
         delta["iteration_counts"] = counts
+        delta["developer_last_run_failed"] = "code_artifacts" not in delta
         return delta
 
     @property

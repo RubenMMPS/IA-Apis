@@ -8,6 +8,7 @@ from app.graph.state.research import ResearchFindings
 from app.graph.state.architecture import ArchitectureSpec
 from app.graph.state.code import CodeArtifacts
 from app.graph.state.test_result import TestResult
+from app.graph.state.review import ReviewFeedback
 
 TaskStatus = Literal["queued", "running", "completed", "failed", "failed_max_retries"]
 
@@ -17,6 +18,7 @@ class GraphState(TypedDict):
     original_request: str
     status: TaskStatus
     current_node: Optional[str]
+    developer_last_run_failed: bool
 
     # Salida de agentes
     plan: Optional[Plan]
@@ -24,6 +26,7 @@ class GraphState(TypedDict):
     architecture_spec: Optional[ArchitectureSpec]
     code_artifacts: Optional[CodeArtifacts]
     test_results: Optional[TestResult]
+    review_feedback: Optional[ReviewFeedback]
 
     # Control de flujo
     iteration_counts: dict[str, int]
