@@ -3,9 +3,11 @@ from fastapi import FastAPI, Depends
 from app.llm.base import LLMProvider
 from app.llm.dependencies import get_llm_provider
 from app.llm.models import LLMRequest, LLMMessage, LLMResponse
+from app.api.routes.tasks import router as tasks_router
 
 app = FastAPI(title="AI Software Engineering Team - Backend")
 
+app.include_router(tasks_router)
 
 @app.get("/health")
 async def health():
