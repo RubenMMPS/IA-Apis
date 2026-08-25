@@ -2,6 +2,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
+import subprocess
 
 from app.graph.state.code import CodeFile
 
@@ -39,16 +40,15 @@ class DockerTestRunner:
             SANDBOX_IMAGE,
             "timeout", str(EXEC_TIMEOUT_SECONDS), "pytest", "-q", "--tb=short",
         ]
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=WAIT_TIMEOUT_SECONDS
-            )
-        except asyncio.TimeoutError:
-            process.kill()
-            return False, -1, "Timeout: la ejecución de tests excedió el límite de tiempo."
 
-        output = (stdout + stderr).decode("utf-8", errors="replace")
-        return process.returncode == 0, process.returncode, output[-4000:]
+        def _run_blocking() -> tuple[bool, int, str]:
+            try:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=WAIT_TIMEOUT_SECONDS
+                )
+                output = (result.stdout + result.stderr)[-4000:]
+                return result.returncode == 0, result.returncode, output
+            except subprocess.TimeoutExpired:
+                return False, -1, "Timeout: la ejecución de tests excedió el límite de tiempo."
+
+        return await asyncio.to_thread(_run_blocking)
