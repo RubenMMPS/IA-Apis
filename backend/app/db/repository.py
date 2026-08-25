@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.models import KnowledgeChunk
+import uuid
+from app.db.models import KnowledgeChunk, Task, TaskStatus
 
 
 async def insert_chunk(
@@ -24,3 +24,32 @@ async def search_similar_chunks(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+async def create_task(session: AsyncSession, original_request: str) -> Task:
+    task = Task(original_request=original_request, status=TaskStatus.queued)
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+    return task
+
+
+async def get_task(session: AsyncSession, task_id: uuid.UUID) -> Task | None:
+    return await session.get(Task, task_id)
+
+
+async def update_task_status(
+    session: AsyncSession,
+    task_id: uuid.UUID,
+    status: TaskStatus,
+    result_summary: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    task = await session.get(Task, task_id)
+    if task is None:
+        return
+    task.status = status
+    if result_summary is not None:
+        task.result_summary = result_summary
+    if error_message is not None:
+        task.error_message = error_message
+    await session.commit()
