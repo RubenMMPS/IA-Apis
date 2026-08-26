@@ -1,14 +1,18 @@
+import traceback
 import uuid
+
 from app.db.session import AsyncSessionLocal
 from app.db.repository import get_task, update_task_status
 from app.db.models import TaskStatus
 from app.llm.dependencies import get_llm_provider
 from app.embeddings.dependencies import get_embedding_provider
 from app.graph.build_graph import build_graph
-import traceback
+from app.core.events import event_bus, TaskEvent
 
 
 async def run_graph_for_task(task_id: uuid.UUID) -> None:
+    task_id_str = str(task_id)
+
     async with AsyncSessionLocal() as session:
         task = await get_task(session, task_id)
         if task is None:
@@ -16,10 +20,10 @@ async def run_graph_for_task(task_id: uuid.UUID) -> None:
         await update_task_status(session, task_id, TaskStatus.running)
 
     app = build_graph(get_llm_provider(), get_embedding_provider())
-    config = {"configurable": {"thread_id": str(task_id)}}
+    config = {"configurable": {"thread_id": task_id_str}}
 
     initial_state = {
-        "task_id": str(task_id),
+        "task_id": task_id_str,
         "original_request": task.original_request,
         "status": "running", "current_node": None,
         "plan": None, "research_findings": None, "architecture_spec": None,
@@ -30,14 +34,18 @@ async def run_graph_for_task(task_id: uuid.UUID) -> None:
 
     async with AsyncSessionLocal() as session:
         try:
-            final_state = await app.ainvoke(initial_state, config)
+            async for _ in app.astream(initial_state, config, stream_mode="updates"):
+                pass  # los eventos ya se publican dentro de cada agente; aquí solo dejamos avanzar el grafo
+
+            snapshot = await app.aget_state(config)
+            final_state = snapshot.values
+
         except Exception as e:
             tb = traceback.format_exc()
-            print(f"[task_runner] Excepción en task {task_id}:\n{tb}")  # va a la consola de uvicorn
-            await update_task_status(
-                session, task_id, TaskStatus.failed,
-                error_message=f"{type(e).__name__}: {e}" or "Excepción sin mensaje (ver logs de consola)",
-            )
+            print(f"[task_runner] Excepción en task {task_id}:\n{tb}")
+            error_msg = f"{type(e).__name__}: {e}" or "Excepción sin mensaje (ver logs de consola)"
+            await update_task_status(session, task_id, TaskStatus.failed, error_message=error_msg)
+            event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
             return
 
         code = final_state.get("code_artifacts")
@@ -45,19 +53,18 @@ async def run_graph_for_task(task_id: uuid.UUID) -> None:
         review = final_state.get("review_feedback")
 
         if review and review.decision == "approved":
-            await update_task_status(
-                session, task_id, TaskStatus.completed,
-                result_summary=code.notes if code else "Completado sin notas.",
-            )
+            summary = code.notes if code else "Completado sin notas."
+            await update_task_status(session, task_id, TaskStatus.completed, result_summary=summary)
+            event_bus.publish(task_id_str, TaskEvent(event_type="task_completed", message="Tarea completada y aprobada"))
         else:
             reasons = []
             if test_results and not test_results.passed:
-                reasons.append(f"Tests no superados tras {final_state.get('iteration_counts', {}).get('developer', 0)} intentos.")
+                attempts = final_state.get("iteration_counts", {}).get("developer", 0)
+                reasons.append(f"Tests no superados tras {attempts} intentos.")
             if review and review.decision == "changes_requested":
                 reasons.append(f"Reviewer solicitó cambios: {review.comments}")
             if not reasons:
                 reasons.append("El workflow no llegó a completarse (posible límite de reintentos).")
-            await update_task_status(
-                session, task_id, TaskStatus.failed,
-                error_message=" | ".join(reasons),
-            )
+            error_msg = " | ".join(reasons)
+            await update_task_status(session, task_id, TaskStatus.failed, error_message=error_msg)
+            event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
