@@ -1,7 +1,23 @@
 from app.agents.base import BaseAgent
 from app.graph.state.graph_state import GraphState
 from app.graph.state.code import CodeArtifacts
+from app.core.events import event_bus, TaskEvent
+import re
 
+IMPORT_ERROR_PATTERNS = [
+    r"ImportError",
+    r"ModuleNotFoundError",
+    r"cannot import name",
+    r"No module named",
+]
+
+COLLECTION_ERROR_PATTERNS = [
+    r"ImportError",
+    r"ModuleNotFoundError",
+    r"cannot import name",
+    r"No module named",
+    r"SyntaxError",
+]
 
 class DeveloperAgent(BaseAgent):
     name = "developer"
@@ -11,11 +27,17 @@ class DeveloperAgent(BaseAgent):
         counts = dict(state.get("iteration_counts", {}))
         counts["developer"] = counts.get("developer", 0) + 1
 
+        if counts["developer"] > 1:
+            event_bus.publish(state["task_id"], TaskEvent(
+                event_type="retry", agent=self.name,
+                message=f"Reintento #{counts['developer']} de Developer",
+            ))
+
         delta = await super().run(state)
         delta["iteration_counts"] = counts
         delta["developer_last_run_failed"] = "code_artifacts" not in delta
         return delta
-
+    
     @property
     def system_prompt(self) -> str:
         return (
@@ -28,8 +50,39 @@ class DeveloperAgent(BaseAgent):
             "el archivo completo actualizado, no solo el fragmento cambiado."
         )
 
+    def _detect_import_issue_hint(self, test_output: str) -> str | None:
+        if re.search(r"SyntaxError", test_output):
+            return (
+                "El fallo es un SyntaxError: el archivo de test o de implementación no es "
+                "Python válido y ni siquiera se pudo cargar. Presta especial atención a los "
+                "literales de string que contienen comillas o backslashes (por ejemplo, "
+                "casos de prueba con caracteres especiales): usa raw strings (r\"...\") o "
+                "escapa correctamente cada carácter. Corrige la sintaxis antes que cualquier "
+                "otra cosa; ningún test se ejecutará mientras el archivo no sea válido."
+            )
+        if any(re.search(p, test_output) for p in IMPORT_ERROR_PATTERNS):
+            return (
+                "El fallo parece ser un error de importación, no un error de lógica. "
+                "Antes de reescribir la implementación, revisa específicamente: "
+                "(1) que los nombres de funciones/clases que los tests importan coincidan "
+                "exactamente con los que tu implementación exporta (mismo nombre, misma "
+                "ubicación); (2) que la firma y el tipo de retorno de cada función usada en "
+                "los tests coincidan con cómo la defines; (3) si usas una librería externa, "
+                "que la API que invocas (nombres de funciones, excepciones que lanza) sea la "
+                "real de esa librería y no una que hayas asumido. "
+                "Corrige el desajuste de nombres/API antes que cualquier otra cosa."
+            )
+        return None
+
     def build_user_message(self, state: GraphState) -> str:
-        spec = state["architecture_spec"]
+        spec = state.get("architecture_spec")
+        if spec is None:
+            return (
+                "No se recibió una especificación técnica válida del Architect "
+                "(posible fallo previo). Genera una implementación mínima y razonable "
+                f"para la petición original del usuario:\n{state['original_request']}"
+            )
+
         decisions_text = "\n".join(f"- {d.component}: {d.description}" for d in spec.decisions)
         files_text = ", ".join(spec.files_to_create)
 
@@ -41,6 +94,9 @@ class DeveloperAgent(BaseAgent):
         test_results = state.get("test_results")
         if test_results and not test_results.passed:
             parts.append(f"\nLos tests fallaron en el intento anterior:\n{test_results.output}")
+            hint = self._detect_import_issue_hint(test_results.output)
+            if hint:
+                parts.append(f"\nPista de diagnóstico:\n{hint}")
 
         review_feedback = state.get("review_feedback")
         if review_feedback and review_feedback.decision == "changes_requested":

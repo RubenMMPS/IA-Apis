@@ -38,13 +38,18 @@ class DockerTestRunner:
             "-v", f"{tmp_dir}:/app",
             "-w", "/app",
             SANDBOX_IMAGE,
-            "timeout", str(EXEC_TIMEOUT_SECONDS), "pytest", "-q", "--tb=short",
+            "timeout", str(EXEC_TIMEOUT_SECONDS), "python", "-m", "pytest", "-q", "--tb=short",
         ]
 
         def _run_blocking() -> tuple[bool, int, str]:
             try:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=WAIT_TIMEOUT_SECONDS
+                    cmd,  # <-- capturado del scope exterior, no se importa
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=WAIT_TIMEOUT_SECONDS,
                 )
                 output = (result.stdout + result.stderr)[-4000:]
                 return result.returncode == 0, result.returncode, output
