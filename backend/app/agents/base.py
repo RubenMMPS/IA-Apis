@@ -11,6 +11,7 @@ from app.graph.state.errors import ErrorRecord
 from app.llm.base import LLMProvider
 from app.llm.models import LLMRequest, LLMMessage, ToolDefinition, ToolCall
 from app.llm.exceptions import LLMProviderError
+from app.core.events import event_bus, TaskEvent
 
 MAX_PARSE_RETRIES = 2
 
@@ -91,24 +92,33 @@ class BaseAgent(ABC):
         )
 
     async def run(self, state: GraphState) -> dict:
+        task_id = state["task_id"]
+        event_bus.publish(task_id, TaskEvent(event_type="agent_started", agent=self.name, message=f"{self.name} iniciado"))
+
         messages = [
             LLMMessage(role="system", content=self._full_system_prompt()),
             LLMMessage(role="user", content=self.build_user_message(state)),
         ]
 
         try:
-            output = await self._generate_with_retries(messages)
+            output = await self._generate_with_retries(messages, task_id)
         except LLMProviderError as e:
-            return self._error_delta(f"Fallo del proveedor LLM: {e}", "recoverable")
+            delta = self._error_delta(f"Fallo del proveedor LLM: {e}", "recoverable")
+            event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
+            return delta
         except AgentOutputParsingError as e:
-            return self._error_delta(f"Salida inválida tras reintentos: {e}", "fatal")
+            delta = self._error_delta(f"Salida inválida tras reintentos: {e}", "fatal")
+            event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
+            return delta
 
         delta = self.apply_output(state, output)
         delta["messages"] = [AgentMessage(agent=self.name, content=f"{self.name} completó su tarea")]
         delta["current_node"] = self.name
+
+        event_bus.publish(task_id, TaskEvent(event_type="agent_completed", agent=self.name, message=f"{self.name} completado"))
         return delta
 
-    async def _generate_with_retries(self, messages: list[LLMMessage]) -> BaseModel:
+    async def _generate_with_retries(self, messages: list[LLMMessage], task_id: str) -> BaseModel:
         schema = self.output_schema()
         conversation = list(messages)
         last_error: Exception | None = None
@@ -124,11 +134,12 @@ class BaseAgent(ABC):
                 tool_used = True
                 conversation.append(LLMMessage(role="assistant", content=response.content or ""))
                 for call in response.tool_calls:
-                    result = await self._execute_tool(call)
-                    conversation.append(LLMMessage(
-                        role="user",
-                        content=f"Resultado de la tool '{call.name}': {result}",
+                    event_bus.publish(task_id, TaskEvent(
+                        event_type="tool_used", agent=self.name,
+                        message=f"Usando tool: {call.name} (args: {call.arguments})",
                     ))
+                    result = await self._execute_tool(call)
+                    conversation.append(LLMMessage(role="user", content=f"Resultado de la tool '{call.name}': {result}"))
                 continue
 
             try:
@@ -137,10 +148,7 @@ class BaseAgent(ABC):
             except (ValidationError, ValueError) as e:
                 last_error = e
                 conversation.append(LLMMessage(role="assistant", content=response.content))
-                conversation.append(LLMMessage(
-                    role="user",
-                    content=f"Tu respuesta no era JSON válido: {e}. Corrígela, responde solo JSON.",
-                ))
+                conversation.append(LLMMessage(role="user", content=f"Tu respuesta no era JSON válido: {e}. Corrígela."))
 
         raise AgentOutputParsingError(str(last_error) if last_error else "Límite de iteraciones agotado")
 
