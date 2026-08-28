@@ -1,28 +1,46 @@
 # Requiere Python 3.12 o superior
+
 # --- Web framework ---
+
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 
 # --- Configuración y validación de datos ---
+
 pydantic==2.9.2
 pydantic-settings==2.6.0
 python-dotenv==1.0.1
 
 # --- Proveedores LLM ---
+
 groq==0.11.0
 google-genai==0.3.0
 
-# --- Orquestación multi-agente (para más adelante) ---
-langgraph==0.2.45
-langchain-core==0.3.15
+# --- Orquestación multi-agente y LangGraph ---
 
-# --- Base de datos (para más adelante: Postgres + pgvector) ---
+langchain-core==1.6.0
+langchain-protocol==0.0.19
+langgraph==1.2.11
+langgraph-checkpoint==4.2.0
+langgraph-checkpoint-postgres==3.1.2
+langgraph-prebuilt==1.1.0
+langgraph-sdk==0.4.3
+
+# --- Base de datos (Postgres + pgvector) ---
+
 sqlalchemy==2.0.36
 asyncpg==0.30.0
 alembic==1.13.3
 pgvector==0.3.5
 
+# --- Driver PostgreSQL para AsyncPostgresSaver ---
+
+psycopg==3.3.4
+psycopg-binary==3.3.4
+psycopg-pool==3.3.1
+
 # --- Testing ---
+
 pytest==8.3.3
 pytest-asyncio==0.24.0
 httpx==0.27.2
