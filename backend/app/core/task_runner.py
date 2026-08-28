@@ -10,7 +10,7 @@ from app.graph.build_graph import build_graph
 from app.core.events import event_bus, TaskEvent
 
 
-async def run_graph_for_task(task_id: uuid.UUID) -> None:
+async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
     task_id_str = str(task_id)
 
     async with AsyncSessionLocal() as session:
@@ -19,7 +19,7 @@ async def run_graph_for_task(task_id: uuid.UUID) -> None:
             return
         await update_task_status(session, task_id, TaskStatus.running)
 
-    app = build_graph(get_llm_provider(), get_embedding_provider())
+    app = build_graph(get_llm_provider(), get_embedding_provider(), checkpointer)
     config = {"configurable": {"thread_id": task_id_str}}
 
     initial_state = {

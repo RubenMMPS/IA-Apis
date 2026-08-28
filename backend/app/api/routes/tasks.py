@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
@@ -22,11 +22,12 @@ async def _sse_generator(task_id: str):
 async def create_task_endpoint(
     body: CreateTaskRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     session: AsyncSession = Depends(get_db_session),
 ):
     task = await create_task(session, body.original_request)
 
-    executor = InProcessExecutor(background_tasks)
+    executor = InProcessExecutor(background_tasks, request.app.state.checkpointer)
     executor.submit(task.id)
 
     return TaskResponse.model_validate(task)

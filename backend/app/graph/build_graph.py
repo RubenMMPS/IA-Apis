@@ -1,4 +1,3 @@
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 
 from app.graph.state.graph_state import GraphState
@@ -38,7 +37,7 @@ def route_after_reviewer(state: GraphState) -> str:
     return "give_up" if attempts >= MAX_DEVELOPER_RETRIES else "retry"
 
 
-def build_graph(llm_provider, embedding_provider):
+def build_graph(llm_provider, embedding_provider, checkpointer):
     graph = StateGraph(GraphState)
 
     planner = PlannerAgent(llm_provider)
@@ -73,4 +72,4 @@ def build_graph(llm_provider, embedding_provider):
         {"retry": "developer", "give_up": END, "done": END},
     )
 
-    return graph.compile(checkpointer=MemorySaver())
+    return graph.compile(checkpointer=checkpointer)
