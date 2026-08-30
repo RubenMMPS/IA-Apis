@@ -7,6 +7,7 @@ from app.llm.base import LLMProvider
 from app.llm.dependencies import get_llm_provider
 from app.llm.models import LLMRequest, LLMMessage, LLMResponse
 from app.api.routes.tasks import router as tasks_router
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager
@@ -21,6 +22,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Software Engineering Team - Backend", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(tasks_router)
 
