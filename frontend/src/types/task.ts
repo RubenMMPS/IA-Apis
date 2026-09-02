@@ -13,3 +13,13 @@ export interface Task {
 export interface CreateTaskRequest {
   original_request: string;
 }
+
+export interface CodeFile {
+  filename: string;
+  content: string;
+}
+
+export interface CodeArtifacts {
+  files: CodeFile[];
+  notes: string;
+}
