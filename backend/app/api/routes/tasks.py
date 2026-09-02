@@ -9,6 +9,10 @@ from app.api.schemas import CreateTaskRequest, TaskResponse
 import json
 from fastapi.responses import StreamingResponse
 from app.core.events import event_bus
+from app.graph.build_graph import build_graph
+from app.llm.dependencies import get_llm_provider
+from app.embeddings.dependencies import get_embedding_provider
+from app.api.schemas import CodeArtifactsResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -54,3 +58,17 @@ async def stream_task_events(task_id: uuid.UUID):
             "X-Accel-Buffering": "no",
         },
     )
+
+@router.get("/{task_id}/code", response_model=CodeArtifactsResponse)
+async def get_task_code(task_id: uuid.UUID, request: Request):
+    checkpointer = request.app.state.checkpointer
+    graph = build_graph(get_llm_provider(), get_embedding_provider(), checkpointer)
+    config = {"configurable": {"thread_id": str(task_id)}}
+
+    snapshot = await graph.aget_state(config)
+    code = snapshot.values.get("code_artifacts")
+
+    if code is None:
+        raise HTTPException(status_code=404, detail="No hay código generado para esta tarea (aún en curso o sin llegar a Developer)")
+
+    return CodeArtifactsResponse.model_validate(code.model_dump())

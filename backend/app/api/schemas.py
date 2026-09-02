@@ -20,3 +20,12 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CodeFileResponse(BaseModel):
+    filename: str
+    content: str
+
+
+class CodeArtifactsResponse(BaseModel):
+    files: list[CodeFileResponse]
+    notes: str
