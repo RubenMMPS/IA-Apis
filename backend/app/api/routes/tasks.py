@@ -5,14 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db_session
 from app.db.repository import create_task, get_task
 from app.core.task_executor import InProcessExecutor
-from app.api.schemas import CreateTaskRequest, TaskResponse
+from app.api.schemas import CreateTaskRequest, TaskResponse, CodeArtifactsResponse, TestResultResponse
 import json
 from fastapi.responses import StreamingResponse
 from app.core.events import event_bus
 from app.graph.build_graph import build_graph
 from app.llm.dependencies import get_llm_provider
 from app.embeddings.dependencies import get_embedding_provider
-from app.api.schemas import CodeArtifactsResponse
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -72,3 +71,17 @@ async def get_task_code(task_id: uuid.UUID, request: Request):
         raise HTTPException(status_code=404, detail="No hay código generado para esta tarea (aún en curso o sin llegar a Developer)")
 
     return CodeArtifactsResponse.model_validate(code.model_dump())
+
+@router.get("/{task_id}/test-result", response_model=TestResultResponse)
+async def get_task_test_result(task_id: uuid.UUID, request: Request):
+    checkpointer = request.app.state.checkpointer
+    graph = build_graph(get_llm_provider(), get_embedding_provider(), checkpointer)
+    config = {"configurable": {"thread_id": str(task_id)}}
+
+    snapshot = await graph.aget_state(config)
+    result = snapshot.values.get("test_results")
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="No hay resultados de tests para esta tarea")
+
+    return TestResultResponse.model_validate(result.model_dump())

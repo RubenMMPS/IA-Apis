@@ -29,3 +29,8 @@ class CodeFileResponse(BaseModel):
 class CodeArtifactsResponse(BaseModel):
     files: list[CodeFileResponse]
     notes: str
+
+class TestResultResponse(BaseModel):
+    passed: bool
+    exit_code: int
+    output: str
