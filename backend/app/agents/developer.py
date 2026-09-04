@@ -47,7 +47,11 @@ class DeveloperAgent(BaseAgent):
             "archivos. Escribe código completo, funcional y con type hints, sin marcadores "
             "de posición ni TODOs. Si recibes feedback de una iteración anterior "
             "(tests fallidos o revisión con cambios solicitados), corrígelo mostrando "
-            "el archivo completo actualizado, no solo el fragmento cambiado."
+            "el archivo completo actualizado, no solo el fragmento cambiado. "
+            "Si escribes tests asíncronos (async def con pytest), incluye siempre un "
+            "archivo pytest.ini con 'asyncio_mode = auto' en la sección [pytest]; si no "
+            "es estrictamente necesario usar tests async, prefiere tests síncronos con "
+            "TestClient para mantener la ejecución simple."
         )
 
     def _detect_import_issue_hint(self, test_output: str) -> str | None:
