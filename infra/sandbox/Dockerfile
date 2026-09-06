@@ -6,7 +6,9 @@ RUN pip install --no-cache-dir \
     email-validator \
     fastapi \
     httpx \
-    pydantic
+    pydantic \
+    sqlalchemy \
+    aiosqlite
 
 RUN useradd -m sandboxuser
 WORKDIR /app
