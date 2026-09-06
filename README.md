@@ -148,21 +148,33 @@ infra/
 └── sandbox/             # imagen Docker para ejecución de tests
 ```
 
-## Limitaciones conocidas y deuda técnica
+## Limitaciones conocidas y hallazgos de validación
 
+Para diagnosticar correctamente un fallo de una tarea, es importante distinguir tres categorías de causa distintas — mezclarlas lleva a "arreglar" lo que no corresponde (por ejemplo, ampliar el sandbox para tapar una desviación del agente):
+
+**1. Errores de infraestructura del sandbox** (corregibles, y ya corregidos cuando se detectaron):
+- El sandbox inicialmente solo tenía `pytest`/`email-validator` instalados; se amplió con `fastapi`, `httpx`, `pydantic` y `pytest-asyncio` al detectar que tareas de API REST los necesitaban.
+- Se corrigió la resolución de módulos con paquetes (`python -m pytest` en vez de `pytest` suelto) y el encoding UTF-8 al capturar output de tests con caracteres no ASCII.
+
+**2. Errores en el código generado por los agentes** (parte esperada del ciclo de retry, no bugs del sistema):
+- Uso de sintaxis de librerías desactualizada respecto a la versión instalada en el sandbox (ej. `httpx.AsyncClient(app=...)`, eliminado en httpx recientes) — mitigado con una instrucción explícita en el prompt de Developer sobre la sintaxis vigente.
+- Modelos pequeños (Groq `openai/gpt-oss-20b`) pueden no converger en tests con literales de string complejos (comillas anidadas, escapes) — limitación de capacidad del modelo, no del diseño del sistema.
+
+**3. Decisiones de producto sobre alcance del sandbox** (no son bugs, son límites elegidos conscientemente):
+- El sandbox soporta SQLite + SQLAlchemy (vía `aiosqlite`) como stack de persistencia real, además de FastAPI/httpx/pytest-asyncio. No soporta motores de base de datos que requieran un servidor aparte (Postgres, MySQL) porque el sandbox corre con `--network none`.
+- **Hallazgo de validación**: en una ejecución con la petición "API CRUD de to-do list... con persistencia en memoria (un diccionario)", Developer introdujo SQLAlchemy y una base de datos real en vez de la persistencia en memoria pedida explícitamente. Se reforzó el prompt de Developer para pedirle que respete restricciones técnicas explícitas de la petición, pero esto **no está garantizado** — sin un mecanismo de verificación (ver Roadmap), el sistema no puede asegurar que una restricción como "en memoria" se cumpla siempre. Si necesitas persistencia en memoria de forma fiable, revisa el código generado (`GET /tasks/{id}/code`) antes de darlo por válido.
+
+Otras limitaciones de diseño, no relacionadas con lo anterior:
 - **`GeminiProvider` no soporta tool-calling**: si `LLM_PROVIDER=gemini`, el Researcher no ejecuta RAG real (no falla, pero investiga solo con el conocimiento general del modelo, sin consultar `knowledge_chunks`). RAG real requiere `LLM_PROVIDER=groq`.
 - **Retry con circuit breaker solo implementado explícitamente para Developer**: un fallo de LLM en Planner/Researcher/Architect no tiene su propio ciclo de retry dedicado (mitigado con guardas defensivas puntuales, no generalizado).
-- **Modelos pequeños (Groq `openai/gpt-oss-20b`) pueden no converger** en tests con literales de string complejos (comillas anidadas, escapes) — limitación de capacidad del modelo, no del diseño.
-- **`EventBus` en memoria de un solo proceso**: los eventos SSE no sobreviven a un reinicio del backend ni escalan a múltiples workers (mismo tipo de limitación que ya se resolvió para los checkpoints, pendiente aquí).
-- **El frontend no expone el código generado**, solo un resumen textual (`result_summary`); el código completo vive en el checkpoint pero no está expuesto vía API todavía.
+- **`EventBus` en memoria de un solo proceso**: los eventos SSE no sobreviven a un reinicio del backend ni escalan a múltiples workers. Como consecuencia, al consultar una tarea ya finalizada (`TaskLookup`), el frontend reconstruye el estado por-agente desde el checkpoint de forma aproximada (todos los agentes se muestran con el mismo estado final), no con el detalle exacto de cada paso.
 - **Sin migraciones formales** (Alembic): el esquema se crea con `Base.metadata.create_all()`.
 
 ## Roadmap
 
-- [ ] Suite de tests automatizados (pytest) sobre el propio backend
+- [ ] **Validación de restricciones de la tarea**: incorporar un "contrato de requisitos" explícito al estado (`GraphState`), derivado de la petición original (ej. restricciones tecnológicas como "persistencia en memoria", "sin dependencias externas"), que Architect/Developer/Reviewer puedan consultar y verificar explícitamente antes de aprobar — para detectar y corregir automáticamente casos como el descrito en el punto 3 de las limitaciones, en vez de depender solo de que el prompt lo mencione.
 - [ ] Evaluación offline / golden set con LLM-as-judge
-- [ ] Exponer `code_artifacts` vía API + visor de código en el frontend
-- [ ] Consulta de tareas existentes por `task_id` en el frontend (`TaskLookup`)
 - [ ] Tool-calling en `GeminiProvider` (paridad con Groq)
 - [ ] Generalizar retry/circuit breaker a todos los agentes, no solo Developer
+- [ ] Persistir eventos (no solo el estado final) para reconstruir el detalle exacto por-agente al consultar tareas antiguas
 - [ ] Métricas de coste/tokens por tarea
