@@ -51,7 +51,16 @@ class DeveloperAgent(BaseAgent):
             "Si escribes tests asíncronos (async def con pytest), incluye siempre un "
             "archivo pytest.ini con 'asyncio_mode = auto' en la sección [pytest]; si no "
             "es estrictamente necesario usar tests async, prefiere tests síncronos con "
-            "TestClient para mantener la ejecución simple."
+            "TestClient para mantener la ejecución simple. "
+            "Para probar una app FastAPI con httpx.AsyncClient, usa la sintaxis actual: "
+            "httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=\"http://test\") "
+            "— el parámetro 'app=' directo en AsyncClient fue eliminado en versiones "
+            "recientes de httpx y ya no es válido."
+            "Respeta estrictamente cualquier restricción técnica explícita en la petición "
+            "original del usuario (por ejemplo: 'en memoria', 'sin base de datos', 'sin "
+            "dependencias externas'). No introduzcas librerías ni tecnologías no solicitadas "
+            "para resolver un problema — si tienes dudas sobre cómo cumplir la restricción, "
+            "prioriza la solución más simple que la respete, incluso si es menos robusta."
         )
 
     def _detect_import_issue_hint(self, test_output: str) -> str | None:
