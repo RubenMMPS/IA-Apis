@@ -34,7 +34,7 @@ PostgreSQL + pgvector
 
 Principios de diseño:
 
-- **Servicios desacoplados por interfaz** (Strategy + Adapter + Factory): `LLMProvider`, `EmbeddingProvider` y `TaskExecutor` son interfaces con implementaciones intercambiables por configuración, sin tocar el código que las usa.
+- **Servicios desacoplados por interfaz** (Strategy + Adapter + Factory): `LLMProvider`, `EmbeddingProvider` y `TaskExecutor` son interfaces con implementaciones intercambiables por configuración, sin tocar el código que las usa. El servicio LLM además incluye **fallback automático**: si el proveedor primario falla con un error recuperable (rate limit, sobrecarga, timeout), se reintenta automáticamente con un proveedor secundario, de forma transparente para los agentes.
 - **Estado del grafo tipado y validado**: `GraphState` (TypedDict con reducers) contiene modelos Pydantic por cada bloque de datos (`Plan`, `ArchitectureSpec`, `CodeArtifacts`, `TestResult`, `ReviewFeedback`), extensible sin romper agentes existentes.
 - **Agentes construidos con Template Method** (`BaseAgent`): cada agente concreto solo declara `system_prompt`, cómo lee el estado, su schema de salida y cómo escribe el resultado — el flujo de ejecución, reintentos de parseo, tool-calling y manejo de errores es común y vive una sola vez.
 - **Persistencia real**: checkpoints de LangGraph en Postgres (sobreviven a reinicios del proceso), tracking de tareas en tabla `tasks` separada del estado interno del grafo.
@@ -98,7 +98,7 @@ python -m venv venv
 venv\Scripts\activate        # Windows; en Linux/Mac: source venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env         # y rellena las API keys y credenciales de DB
+cp .env.example .env         # y rellena las API keys y credenciales de DB (tanto el bloque LLM_* primario como LLM_FALLBACK_* de respaldo)
 
 python scratch_create_tables.py   # crea las tablas de dominio (tasks, knowledge_chunks)
 python run.py                      # arranca el backend en :8000 (crea también las tablas de checkpoints)
