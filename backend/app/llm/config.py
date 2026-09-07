@@ -12,3 +12,15 @@ class LLMSettings(BaseSettings):
         protected_namespaces=(),
         extra="ignore",
     )
+
+class LLMFallbackSettings(BaseSettings):
+    provider: Literal["gemini", "groq"] = "gemini"
+    api_key: str
+    model_name: str
+
+    model_config = SettingsConfigDict(
+        env_prefix="LLM_FALLBACK_",
+        env_file=".env",
+        protected_namespaces=(),
+        extra="ignore",
+    )
