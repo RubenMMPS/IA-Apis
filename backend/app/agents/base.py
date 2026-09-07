@@ -1,4 +1,3 @@
-import json
 import re
 from abc import ABC, abstractmethod
 from typing import Type
@@ -11,6 +10,7 @@ from app.graph.state.errors import ErrorRecord
 from app.llm.base import LLMProvider
 from app.llm.models import LLMRequest, LLMMessage, ToolDefinition, ToolCall
 from app.llm.exceptions import LLMProviderError
+from app.agents.tools.base import Tool
 from app.core.events import event_bus, TaskEvent
 
 MAX_PARSE_RETRIES = 2
@@ -32,7 +32,7 @@ def _normalize_json_text(text: str) -> str:
 class BaseAgent(ABC):
     name: AgentName
     tools: list[ToolDefinition] = []
-    tool_registry: dict[str, "Tool"] = {}
+    tool_registry: dict[str, Tool] = {}
     max_tool_iterations: int = 5
     max_output_tokens: int = 2048
 
