@@ -165,7 +165,6 @@ Para diagnosticar correctamente un fallo de una tarea, es importante distinguir 
 - **Hallazgo de validación**: en una ejecución con la petición "API CRUD de to-do list... con persistencia en memoria (un diccionario)", Developer introdujo SQLAlchemy y una base de datos real en vez de la persistencia en memoria pedida explícitamente. Se reforzó el prompt de Developer para pedirle que respete restricciones técnicas explícitas de la petición, pero esto **no está garantizado** — sin un mecanismo de verificación (ver Roadmap), el sistema no puede asegurar que una restricción como "en memoria" se cumpla siempre. Si necesitas persistencia en memoria de forma fiable, revisa el código generado (`GET /tasks/{id}/code`) antes de darlo por válido.
 
 Otras limitaciones de diseño, no relacionadas con lo anterior:
-- **`GeminiProvider` no soporta tool-calling**: si `LLM_PROVIDER=gemini`, el Researcher no ejecuta RAG real (no falla, pero investiga solo con el conocimiento general del modelo, sin consultar `knowledge_chunks`). RAG real requiere `LLM_PROVIDER=groq`.
 - **`EventBus` en memoria de un solo proceso**: los eventos SSE no sobreviven a un reinicio del backend ni escalan a múltiples workers. Como consecuencia, al consultar una tarea ya finalizada (`TaskLookup`), el frontend reconstruye el estado por-agente desde el checkpoint de forma aproximada (todos los agentes se muestran con el mismo estado final), no con el detalle exacto de cada paso.
 - **Sin migraciones formales** (Alembic): el esquema se crea con `Base.metadata.create_all()`.
 
@@ -173,6 +172,5 @@ Otras limitaciones de diseño, no relacionadas con lo anterior:
 
 - [ ] **Validación de restricciones de la tarea**: incorporar un "contrato de requisitos" explícito al estado (`GraphState`), derivado de la petición original (ej. restricciones tecnológicas como "persistencia en memoria", "sin dependencias externas"), que Architect/Developer/Reviewer puedan consultar y verificar explícitamente antes de aprobar — para detectar y corregir automáticamente casos como el descrito en el punto 3 de las limitaciones, en vez de depender solo de que el prompt lo mencione.
 - [ ] Evaluación offline / golden set con LLM-as-judge
-- [ ] Tool-calling en `GeminiProvider` (paridad con Groq)
 - [ ] Persistir eventos (no solo el estado final) para reconstruir el detalle exacto por-agente al consultar tareas antiguas
 - [ ] Métricas de coste/tokens por tarea
