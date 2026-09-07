@@ -30,6 +30,10 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
         "code_artifacts": None, "test_results": None, "review_feedback": None,
         "developer_last_run_failed": False,
         "iteration_counts": {}, "messages": [], "errors": [], "schema_version": 1,
+        "planner_last_run_failed": False,
+        "researcher_last_run_failed": False,
+        "architect_last_run_failed": False,
+        "developer_last_run_failed": False,
     }
 
     async with AsyncSessionLocal() as session:

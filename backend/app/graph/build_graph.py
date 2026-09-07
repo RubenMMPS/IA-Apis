@@ -37,6 +37,27 @@ def route_after_reviewer(state: GraphState) -> str:
     return "give_up" if attempts >= MAX_DEVELOPER_RETRIES else "retry"
 
 
+def route_after_planner(state: GraphState) -> str:
+    if state.get("planner_last_run_failed"):
+        attempts = state.get("iteration_counts", {}).get("planner", 0)
+        return "give_up" if attempts >= MAX_DEVELOPER_RETRIES else "retry"
+    return "to_researcher"
+
+
+def route_after_researcher(state: GraphState) -> str:
+    if state.get("researcher_last_run_failed"):
+        attempts = state.get("iteration_counts", {}).get("researcher", 0)
+        return "give_up" if attempts >= MAX_DEVELOPER_RETRIES else "retry"
+    return "to_architect"
+
+
+def route_after_architect(state: GraphState) -> str:
+    if state.get("architect_last_run_failed"):
+        attempts = state.get("iteration_counts", {}).get("architect", 0)
+        return "give_up" if attempts >= MAX_DEVELOPER_RETRIES else "retry"
+    return "to_developer"
+
+
 def build_graph(llm_provider, embedding_provider, checkpointer):
     graph = StateGraph(GraphState)
 
@@ -55,10 +76,19 @@ def build_graph(llm_provider, embedding_provider, checkpointer):
     graph.add_node("reviewer", reviewer.run)
 
     graph.set_entry_point("planner")
-    graph.add_edge("planner", "researcher")
-    graph.add_edge("researcher", "architect")
-    graph.add_edge("architect", "developer")
 
+    graph.add_conditional_edges(
+        "planner", route_after_planner,
+        {"retry": "planner", "give_up": END, "to_researcher": "researcher"},
+    )
+    graph.add_conditional_edges(
+        "researcher", route_after_researcher,
+        {"retry": "researcher", "give_up": END, "to_architect": "architect"},
+    )
+    graph.add_conditional_edges(
+        "architect", route_after_architect,
+        {"retry": "architect", "give_up": END, "to_developer": "developer"},
+    )
     graph.add_conditional_edges(
         "developer", route_after_developer,
         {"retry": "developer", "give_up": END, "to_tester": "tester"},

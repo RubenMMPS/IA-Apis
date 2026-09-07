@@ -6,6 +6,15 @@ from app.graph.state.architecture import ArchitectureSpec
 class ArchitectAgent(BaseAgent):
     name = "architect"
 
+    async def run(self, state: GraphState) -> dict:
+        counts = dict(state.get("iteration_counts", {}))
+        counts["architect"] = counts.get("architect", 0) + 1
+
+        delta = await super().run(state)
+        delta["iteration_counts"] = counts
+        delta["architect_last_run_failed"] = "architecture_spec" not in delta
+        return delta
+
     @property
     def system_prompt(self) -> str:
         return (

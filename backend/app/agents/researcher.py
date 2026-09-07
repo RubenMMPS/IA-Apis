@@ -15,6 +15,15 @@ class ResearcherAgent(BaseAgent):
         self.tools = [retrieval_tool.definition]
         self.tool_registry = {retrieval_tool.definition.name: retrieval_tool}
 
+    async def run(self, state: GraphState) -> dict:
+        counts = dict(state.get("iteration_counts", {}))
+        counts["researcher"] = counts.get("researcher", 0) + 1
+
+        delta = await super().run(state)
+        delta["iteration_counts"] = counts
+        delta["researcher_last_run_failed"] = "research_findings" not in delta
+        return delta
+
     @property
     def system_prompt(self) -> str:
         return (

@@ -17,6 +17,15 @@ class PlannerOutput(BaseModel):
 class PlannerAgent(BaseAgent):
     name = "planner"
 
+    async def run(self, state: GraphState) -> dict:
+        counts = dict(state.get("iteration_counts", {}))
+        counts["planner"] = counts.get("planner", 0) + 1
+
+        delta = await super().run(state)
+        delta["iteration_counts"] = counts
+        delta["planner_last_run_failed"] = "plan" not in delta
+        return delta
+
     @property
     def system_prompt(self) -> str:
         return (

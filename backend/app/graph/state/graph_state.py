@@ -36,3 +36,8 @@ class GraphState(TypedDict):
     errors: Annotated[list[ErrorRecord], operator.add]
 
     schema_version: int
+
+    # Flags de fallo de agentes
+    planner_last_run_failed: bool
+    researcher_last_run_failed: bool
+    architect_last_run_failed: bool
