@@ -4,7 +4,7 @@ from google.genai.errors import APIError
 
 from app.llm.base import LLMProvider
 from app.llm.models import LLMRequest, LLMResponse, LLMUsage, ToolDefinition, ToolCall
-from app.llm.exceptions import LLMProviderError, LLMResponseParsingError
+from app.llm.exceptions import LLMProviderError, LLMResponseParsingError, is_retryable_error
 
 _TYPE_MAP = {
     "string": "STRING",
@@ -64,7 +64,7 @@ class GeminiProvider(LLMProvider):
                 ),
             )
         except APIError as e:
-            raise LLMProviderError(f"Error del proveedor Gemini: {e}") from e
+            raise LLMProviderError(f"Error del proveedor Gemini: {e}", retryable=is_retryable_error(str(e))) from e
 
         try:
             candidate = response.candidates[0]

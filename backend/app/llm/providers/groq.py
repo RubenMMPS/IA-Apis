@@ -3,7 +3,7 @@ from groq import AsyncGroq, GroqError
 
 from app.llm.base import LLMProvider
 from app.llm.models import LLMRequest, LLMResponse, LLMUsage, ToolDefinition, ToolCall
-from app.llm.exceptions import LLMProviderError, LLMResponseParsingError
+from app.llm.exceptions import LLMProviderError, LLMResponseParsingError, is_retryable_error
 
 
 def _build_tools_param(tools: list[ToolDefinition]) -> list[dict] | None:
@@ -55,7 +55,7 @@ class GroqProvider(LLMProvider):
             completion = await self._client.chat.completions.create(**payload)
 
         except GroqError as e:
-            raise LLMProviderError(f"Error del proveedor Groq: {e}") from e
+            raise LLMProviderError(f"Error del proveedor Groq: {e}", retryable=is_retryable_error(str(e))) from e
 
         try:
             choice = completion.choices[0]

@@ -1,8 +1,24 @@
+import re
+
 class LLMServiceError(Exception):
-    """Error base del servicio LLM, agnóstico de proveedor."""
+    pass
+
 
 class LLMProviderError(LLMServiceError):
-    """El proveedor devolvió un error (rate limit, API key inválida, etc.)."""
+    def __init__(self, message: str, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
+
 
 class LLMResponseParsingError(LLMServiceError):
-    """La respuesta del proveedor no se pudo mapear a LLMResponse."""
+    pass
+
+
+_RETRYABLE_PATTERNS = [
+    r"\b429\b", r"\b503\b", r"rate.?limit", r"UNAVAILABLE",
+    r"RESOURCE_EXHAUSTED", r"overloaded", r"timeout",
+]
+
+
+def is_retryable_error(message: str) -> bool:
+    return any(re.search(p, message, re.IGNORECASE) for p in _RETRYABLE_PATTERNS)
