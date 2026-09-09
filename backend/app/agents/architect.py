@@ -22,7 +22,9 @@ class ArchitectAgent(BaseAgent):
             "A partir del plan y los hallazgos del Researcher, define la especificación "
             "técnica: qué componentes/funciones crear, decisiones de diseño clave "
             "(con su justificación breve) y qué archivos deberá crear el Developer. "
-            "Sé concreto y accionable, no genérico."
+            "Sé concreto y accionable, no genérico. "
+            "Si se indican restricciones técnicas obligatorias, tu diseño debe respetarlas "
+            "estrictamente — no propongas componentes ni dependencias que las incumplan."
         )
 
     def build_user_message(self, state: GraphState) -> str:
@@ -32,11 +34,19 @@ class ArchitectAgent(BaseAgent):
         findings = state.get("research_findings")
         research_text = findings.summary if findings else "(sin research)"
 
-        return (
+        parts = [
             f"Tarea original:\n{state['original_request']}\n\n"
             f"Plan:\n{steps_text}\n\n"
-            f"Hallazgos del Researcher:\n{research_text}"
-        )
+            f"Hallazgos del Researcher:\n{research_text}",
+        ]
+
+        if plan and plan.constraints:
+            constraints_text = "\n".join(f"- {c}" for c in plan.constraints)
+            parts.append(
+                f"\nRESTRICCIONES OBLIGATORIAS que la especificación técnica debe respetar:\n{constraints_text}"
+            )
+
+        return "\n".join(parts)
 
     def output_schema(self) -> type[ArchitectureSpec]:
         return ArchitectureSpec
