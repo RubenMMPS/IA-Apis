@@ -8,3 +8,4 @@ class PlanStep(BaseModel):
 
 class Plan(BaseModel):
     steps: list[PlanStep] = []
+    constraints: list[str] = []

@@ -4,7 +4,6 @@ from app.agents.base import BaseAgent
 from app.graph.state.graph_state import GraphState
 from app.graph.state.plan import Plan, PlanStep
 
-
 class PlanStepOutput(BaseModel):
     id: str
     description: str
@@ -12,19 +11,11 @@ class PlanStepOutput(BaseModel):
 
 class PlannerOutput(BaseModel):
     steps: list[PlanStepOutput]
+    constraints: list[str] = []
 
 
 class PlannerAgent(BaseAgent):
     name = "planner"
-
-    async def run(self, state: GraphState) -> dict:
-        counts = dict(state.get("iteration_counts", {}))
-        counts["planner"] = counts.get("planner", 0) + 1
-
-        delta = await super().run(state)
-        delta["iteration_counts"] = counts
-        delta["planner_last_run_failed"] = "plan" not in delta
-        return delta
 
     @property
     def system_prompt(self) -> str:
@@ -33,7 +24,13 @@ class PlannerAgent(BaseAgent):
             "Tu única responsabilidad es descomponer la tarea de programación del usuario "
             "en una lista ordenada de pasos claros y accionables para el resto del equipo "
             "(Researcher, Architect, Developer, Tester, Reviewer). "
-            "Cada paso debe tener un id corto único y una descripción concisa."
+            "Cada paso debe tener un id corto único y una descripción concisa. "
+            "Además, identifica cualquier restricción técnica explícita mencionada por "
+            "el usuario (por ejemplo: 'persistencia en memoria', 'sin base de datos "
+            "externa', 'no usar librerías de terceros', límites de rendimiento o "
+            "tecnologías prohibidas) y añádela literalmente a 'constraints'. "
+            "Si el usuario no menciona ninguna restricción explícita, deja 'constraints' "
+            "como una lista vacía — no inventes restricciones que no se pidieron."
         )
 
     def build_user_message(self, state: GraphState) -> str:
@@ -47,6 +44,7 @@ class PlannerAgent(BaseAgent):
             steps=[
                 PlanStep(id=s.id, description=s.description, status="pending")
                 for s in output.steps
-            ]
+            ],
+            constraints=output.constraints,
         )
         return {"plan": plan}
