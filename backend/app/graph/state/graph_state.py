@@ -20,6 +20,9 @@ class GraphState(TypedDict):
     current_node: Optional[str]
     developer_last_run_failed: bool
 
+    # Uso de tokens
+    token_usage: dict[str, int]
+
     # Salida de agentes
     plan: Optional[Plan]
     research_findings: Optional[ResearchFindings]

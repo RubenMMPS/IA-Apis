@@ -101,7 +101,7 @@ class BaseAgent(ABC):
         ]
 
         try:
-            output = await self._generate_with_retries(messages, task_id)
+            output, usage = await self._generate_with_retries(messages, task_id)
         except LLMProviderError as e:
             delta = self._error_delta(f"Fallo del proveedor LLM: {e}", "recoverable")
             event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
@@ -114,21 +114,33 @@ class BaseAgent(ABC):
         delta = self.apply_output(state, output)
         delta["messages"] = [AgentMessage(agent=self.name, content=f"{self.name} completó su tarea")]
         delta["current_node"] = self.name
+        delta["token_usage"] = self._accumulate_usage(state.get("token_usage", {}), usage)
 
         event_bus.publish(task_id, TaskEvent(event_type="agent_completed", agent=self.name, message=f"{self.name} completado"))
         return delta
 
-    async def _generate_with_retries(self, messages: list[LLMMessage], task_id: str) -> BaseModel:
+    def _accumulate_usage(self, current: dict, new: dict) -> dict:
+        return {
+            "prompt_tokens": current.get("prompt_tokens", 0) + new["prompt_tokens"],
+            "completion_tokens": current.get("completion_tokens", 0) + new["completion_tokens"],
+            "total_tokens": current.get("total_tokens", 0) + new["total_tokens"],
+        }
+
+    async def _generate_with_retries(self, messages: list[LLMMessage], task_id: str) -> tuple[BaseModel, dict]:
         schema = self.output_schema()
         conversation = list(messages)
         last_error: Exception | None = None
         tool_used = False
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
         for _ in range(self.max_tool_iterations):
             active_tools = [] if tool_used else self.tools
             response = await self._llm.generate(
                 LLMRequest(messages=conversation, tools=active_tools, max_tokens=self.max_output_tokens)
             )
+            usage["prompt_tokens"] += response.usage.prompt_tokens
+            usage["completion_tokens"] += response.usage.completion_tokens
+            usage["total_tokens"] += response.usage.total_tokens
 
             if response.tool_calls:
                 tool_used = True
@@ -144,7 +156,7 @@ class BaseAgent(ABC):
 
             try:
                 clean = _normalize_json_text(response.content)
-                return schema.model_validate_json(clean)
+                return schema.model_validate_json(clean), usage
             except (ValidationError, ValueError) as e:
                 last_error = e
                 conversation.append(LLMMessage(role="assistant", content=response.content))
