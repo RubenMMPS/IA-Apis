@@ -8,7 +8,12 @@ RUN pip install --no-cache-dir \
     httpx \
     pydantic \
     sqlalchemy \
-    aiosqlite
+    aiosqlite \
+    "bcrypt<4.1" \
+    passlib[bcrypt] \
+    pyjwt \
+    python-multipart \
+    pydantic-settings
 
 RUN useradd -m sandboxuser
 WORKDIR /app
