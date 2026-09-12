@@ -21,7 +21,7 @@ COLLECTION_ERROR_PATTERNS = [
 
 class DeveloperAgent(BaseAgent):
     name = "developer"
-    max_output_tokens = 4096
+    max_output_tokens = 6144
 
     async def run(self, state: GraphState) -> dict:
         counts = dict(state.get("iteration_counts", {}))
