@@ -17,7 +17,9 @@ MAX_PARSE_RETRIES = 2
 
 
 class AgentOutputParsingError(Exception):
-    pass
+    def __init__(self, message: str, usage: dict | None = None):
+        super().__init__(message)
+        self.usage = usage or {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
 
 def _normalize_json_text(text: str) -> str:
@@ -104,10 +106,12 @@ class BaseAgent(ABC):
             output, usage = await self._generate_with_retries(messages, task_id)
         except LLMProviderError as e:
             delta = self._error_delta(f"Fallo del proveedor LLM: {e}", "recoverable")
+            delta["token_usage"] = state.get("token_usage", {})  # sin llamada exitosa, no hay usage nuevo que sumar
             event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
             return delta
         except AgentOutputParsingError as e:
             delta = self._error_delta(f"Salida inválida tras reintentos: {e}", "fatal")
+            delta["token_usage"] = self._accumulate_usage(state.get("token_usage", {}), e.usage)
             event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
             return delta
 
@@ -162,7 +166,7 @@ class BaseAgent(ABC):
                 conversation.append(LLMMessage(role="assistant", content=response.content))
                 conversation.append(LLMMessage(role="user", content=f"Tu respuesta no era JSON válido: {e}. Corrígela."))
 
-        raise AgentOutputParsingError(str(last_error) if last_error else "Límite de iteraciones agotado")
+        raise AgentOutputParsingError(str(last_error) if last_error else "Límite de iteraciones agotado", usage=usage)
 
     async def _execute_tool(self, call: ToolCall) -> str:
         tool = self.tool_registry.get(call.name)
