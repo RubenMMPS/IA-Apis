@@ -38,7 +38,7 @@ Principios de diseño:
 - **Estado del grafo tipado y validado**: `GraphState` (TypedDict con reducers) contiene modelos Pydantic por cada bloque de datos (`Plan`, `ArchitectureSpec`, `CodeArtifacts`, `TestResult`, `ReviewFeedback`), extensible sin romper agentes existentes.
 - **Validación de restricciones de la tarea**: Planner detecta restricciones técnicas explícitas en la petición del usuario (ej. "persistencia en memoria", "no usar SQLAlchemy") y las añade al plan; Architect las incorpora al diseño; Reviewer verifica explícitamente su cumplimiento en el código final y fuerza `changes_requested` si detecta alguna violación — incluso si el propio LLM, por error, hubiera marcado la revisión como aprobada. **Esta validación se realiza mediante juicio del LLM, no mediante análisis estático de código: no ofrece una garantía determinista de cumplimiento**, solo reduce la probabilidad de que una restricción explícita pase desapercibida.
 - **Agentes construidos con Template Method** (`BaseAgent`): cada agente concreto solo declara `system_prompt`, cómo lee el estado, su schema de salida y cómo escribe el resultado — el flujo de ejecución, reintentos de parseo, tool-calling y manejo de errores es común y vive una sola vez.
-- **Persistencia real**: checkpoints de LangGraph en Postgres (sobreviven a reinicios del proceso), tracking de tareas en tabla `tasks` separada del estado interno del grafo.
+- **Persistencia real**: checkpoints de LangGraph en Postgres (sobreviven a reinicios del proceso), tracking de tareas en tabla `tasks` separada del estado interno del grafo, incluyendo tokens usados y coste estimado por tarea.
 - **Streaming de eventos**: cada agente emite eventos (`agent_started`, `agent_completed`, `agent_error`, `tool_used`, `retry`) a un bus en memoria, consumidos vía SSE por el frontend.
 
 ## Stack
@@ -120,7 +120,7 @@ npm run dev    # http://localhost:5173
 | Endpoint | Descripción |
 |---|---|
 | `POST /tasks` | Crea una tarea y lanza el workflow en background. Body: `{ "original_request": string }` |
-| `GET /tasks/{task_id}` | Estado y resultado de una tarea (`queued`/`running`/`completed`/`failed`) |
+| `GET /tasks/{task_id}` | Estado y resultado de una tarea (`queued`/`running`/`completed`/`failed`), incluyendo `total_tokens` y `estimated_cost_usd` |
 | `GET /tasks/{task_id}/events` | Stream SSE de eventos en vivo mientras la tarea se ejecuta |
 | `GET /health` | Healthcheck |
 
@@ -169,9 +169,10 @@ Otras limitaciones de diseño, no relacionadas con lo anterior:
 - **`EventBus` en memoria de un solo proceso**: los eventos SSE no sobreviven a un reinicio del backend ni escalan a múltiples workers. Como consecuencia, al consultar una tarea ya finalizada (`TaskLookup`), el frontend reconstruye el estado por-agente desde el checkpoint de forma aproximada (todos los agentes se muestran con el mismo estado final), no con el detalle exacto de cada paso.
 - **Sin migraciones formales** (Alembic): el esquema se crea con `Base.metadata.create_all()`.
 
+- **`estimated_cost_usd` es orientativo, no facturación real**: usa una tabla de precios aproximada (`app/core/pricing.py`) por nombre de modelo, y no distingue si algunos tokens de la tarea se generaron vía el proveedor de fallback (usa siempre la tarifa del proveedor primario configurado).
+
 ## Roadmap
 
 - [ ] **Validación de restricciones por código, no solo por LLM**: para restricciones objetivas y mecánicamente verificables (ej. "no importar `sqlalchemy`"), complementar el juicio de Reviewer con un análisis estático simple (grep de imports prohibidos, por ejemplo) que dé una garantía determinista en esos casos concretos.
 - [ ] Evaluación offline / golden set con LLM-as-judge
 - [ ] Persistir eventos (no solo el estado final) para reconstruir el detalle exacto por-agente al consultar tareas antiguas
-- [ ] Métricas de coste/tokens por tarea
