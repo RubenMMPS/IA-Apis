@@ -4,10 +4,11 @@ import uuid
 from app.db.session import AsyncSessionLocal
 from app.db.repository import get_task, update_task_status
 from app.db.models import TaskStatus
-from app.llm.dependencies import get_llm_provider
+from app.llm.dependencies import get_llm_provider, get_llm_settings
 from app.embeddings.dependencies import get_embedding_provider
 from app.graph.build_graph import build_graph
 from app.core.events import event_bus, TaskEvent
+from app.core.pricing import estimate_cost_usd
 
 
 async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
@@ -28,12 +29,12 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
         "status": "running", "current_node": None,
         "plan": None, "research_findings": None, "architecture_spec": None,
         "code_artifacts": None, "test_results": None, "review_feedback": None,
-        "developer_last_run_failed": False,
         "iteration_counts": {}, "messages": [], "errors": [], "schema_version": 1,
         "planner_last_run_failed": False,
         "researcher_last_run_failed": False,
         "architect_last_run_failed": False,
         "developer_last_run_failed": False,
+        "token_usage": {},
     }
 
     async with AsyncSessionLocal() as session:
@@ -52,13 +53,21 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
             event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
             return
 
+        usage = final_state.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
+        model_name = get_llm_settings().model_name
+        cost = estimate_cost_usd(model_name, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+
         code = final_state.get("code_artifacts")
         test_results = final_state.get("test_results")
         review = final_state.get("review_feedback")
 
         if review and review.decision == "approved":
             summary = code.notes if code else "Completado sin notas."
-            await update_task_status(session, task_id, TaskStatus.completed, result_summary=summary)
+            await update_task_status(
+                session, task_id, TaskStatus.completed, result_summary=summary,
+                total_tokens=total_tokens, estimated_cost_usd=cost,
+            )
             event_bus.publish(task_id_str, TaskEvent(event_type="task_completed", message="Tarea completada y aprobada"))
         else:
             reasons = []
@@ -70,5 +79,8 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
             if not reasons:
                 reasons.append("El workflow no llegó a completarse (posible límite de reintentos).")
             error_msg = " | ".join(reasons)
-            await update_task_status(session, task_id, TaskStatus.failed, error_message=error_msg)
+            await update_task_status(
+                session, task_id, TaskStatus.failed, error_message=error_msg,
+                total_tokens=total_tokens, estimated_cost_usd=cost,
+            )
             event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))

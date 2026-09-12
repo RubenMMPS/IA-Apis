@@ -2,9 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 import enum
-from sqlalchemy import Enum as SAEnum, Text
-
-from sqlalchemy import String, DateTime, func
+from sqlalchemy import String, DateTime, func, Enum as SAEnum, Text, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
@@ -43,5 +41,7 @@ class Task(Base):
     status: Mapped[TaskStatus] = mapped_column(SAEnum(TaskStatus), default=TaskStatus.queued, nullable=False)
     result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    estimated_cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

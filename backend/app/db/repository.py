@@ -43,6 +43,8 @@ async def update_task_status(
     status: TaskStatus,
     result_summary: str | None = None,
     error_message: str | None = None,
+    total_tokens: int | None = None,
+    estimated_cost_usd: float | None = None,
 ) -> None:
     task = await session.get(Task, task_id)
     if task is None:
@@ -52,4 +54,8 @@ async def update_task_status(
         task.result_summary = result_summary
     if error_message is not None:
         task.error_message = error_message
+    if total_tokens is not None:
+        task.total_tokens = total_tokens
+    if estimated_cost_usd is not None:
+        task.estimated_cost_usd = estimated_cost_usd
     await session.commit()

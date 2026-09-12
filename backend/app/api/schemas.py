@@ -34,3 +34,17 @@ class TestResultResponse(BaseModel):
     passed: bool
     exit_code: int
     output: str
+
+class TaskResponse(BaseModel):
+    id: uuid.UUID
+    status: TaskStatus
+    original_request: str
+    result_summary: str | None
+    error_message: str | None
+    total_tokens: int | None
+    estimated_cost_usd: float | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
