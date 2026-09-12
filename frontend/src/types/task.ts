@@ -6,6 +6,8 @@ export interface Task {
   original_request: string;
   result_summary: string | null;
   error_message: string | null;
+  total_tokens: number | null;
+  estimated_cost_usd: number | null;
   created_at: string;
   updated_at: string;
 }

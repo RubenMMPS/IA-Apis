@@ -17,6 +17,11 @@ export function TaskResult({ taskId, isFinished }: { taskId: string; isFinished:
       <strong>Estado final: {task.status}</strong>
       {task.result_summary && <p>{task.result_summary}</p>}
       {task.error_message && <p style={{ color: "#b91c1c" }}>{task.error_message}</p>}
+      {task.total_tokens != null && (
+      <p style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
+        Tokens usados: {task.total_tokens.toLocaleString()} · Coste estimado: ${task.estimated_cost_usd?.toFixed(6)}
+      </p>
+      )}
     </div>
   );
 }
