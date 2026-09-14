@@ -80,3 +80,18 @@ async def test_no_constraints_at_all_does_not_break_review():
     delta = await reviewer.run(make_state(constraints=[]))
 
     assert delta["review_feedback"].decision == "approved"
+
+async def test_automatic_check_catches_violation_llm_missed():
+    llm = FakeReviewerLLM('{"decision": "approved", "comments": "todo bien", "constraints_violated": []}')
+    reviewer = ReviewerAgent(llm)
+
+    state = make_state(constraints=["no utilizar SQLAlchemy"])
+    state["code_artifacts"] = CodeArtifacts(
+        files=[CodeFile(filename="models.py", content="from sqlalchemy import Column\n")],
+        notes="notes",
+    )
+
+    delta = await reviewer.run(state)
+
+    assert delta["review_feedback"].decision == "changes_requested"
+    assert any("verificación automática" in v for v in delta["review_feedback"].constraints_violated)
