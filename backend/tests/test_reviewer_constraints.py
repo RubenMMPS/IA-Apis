@@ -4,7 +4,14 @@ from app.agents.reviewer import ReviewerAgent
 from app.graph.state.plan import Plan
 from app.graph.state.code import CodeArtifacts, CodeFile
 from app.graph.state.test_result import TestResult
+import pytest
+from app.core.events import event_bus
 
+@pytest.fixture(autouse=True)
+def no_op_event_persistence(monkeypatch):
+    async def noop(task_id, event):
+        pass
+    monkeypatch.setattr(event_bus, "_persist", noop)
 
 class FakeReviewerLLM(LLMProvider):
     def __init__(self, json_content: str):
