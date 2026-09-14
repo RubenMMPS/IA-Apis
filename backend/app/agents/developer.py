@@ -28,7 +28,7 @@ class DeveloperAgent(BaseAgent):
         counts["developer"] = counts.get("developer", 0) + 1
 
         if counts["developer"] > 1:
-            event_bus.publish(state["task_id"], TaskEvent(
+            await event_bus.publish(state["task_id"], TaskEvent(
                 event_type="retry", agent=self.name,
                 message=f"Reintento #{counts['developer']} de Developer",
             ))

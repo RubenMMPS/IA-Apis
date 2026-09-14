@@ -50,7 +50,7 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
             print(f"[task_runner] Excepción en task {task_id}:\n{tb}")
             error_msg = f"{type(e).__name__}: {e}" or "Excepción sin mensaje (ver logs de consola)"
             await update_task_status(session, task_id, TaskStatus.failed, error_message=error_msg)
-            event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
+            await event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
             return
 
         usage = final_state.get("token_usage", {})
@@ -68,7 +68,7 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
                 session, task_id, TaskStatus.completed, result_summary=summary,
                 total_tokens=total_tokens, estimated_cost_usd=cost,
             )
-            event_bus.publish(task_id_str, TaskEvent(event_type="task_completed", message="Tarea completada y aprobada"))
+            await event_bus.publish(task_id_str, TaskEvent(event_type="task_completed", message="Tarea completada y aprobada"))
         else:
             reasons = []
             if test_results and not test_results.passed:
@@ -83,4 +83,4 @@ async def run_graph_for_task(task_id: uuid.UUID, checkpointer) -> None:
                 session, task_id, TaskStatus.failed, error_message=error_msg,
                 total_tokens=total_tokens, estimated_cost_usd=cost,
             )
-            event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))
+            await event_bus.publish(task_id_str, TaskEvent(event_type="task_failed", message=error_msg))

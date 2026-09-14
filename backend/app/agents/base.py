@@ -95,7 +95,7 @@ class BaseAgent(ABC):
 
     async def run(self, state: GraphState) -> dict:
         task_id = state["task_id"]
-        event_bus.publish(task_id, TaskEvent(event_type="agent_started", agent=self.name, message=f"{self.name} iniciado"))
+        await event_bus.publish(task_id, TaskEvent(event_type="agent_started", agent=self.name, message=f"{self.name} iniciado"))
 
         messages = [
             LLMMessage(role="system", content=self._full_system_prompt()),
@@ -107,12 +107,12 @@ class BaseAgent(ABC):
         except LLMProviderError as e:
             delta = self._error_delta(f"Fallo del proveedor LLM: {e}", "recoverable")
             delta["token_usage"] = state.get("token_usage", {})  # sin llamada exitosa, no hay usage nuevo que sumar
-            event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
+            await event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
             return delta
         except AgentOutputParsingError as e:
             delta = self._error_delta(f"Salida inválida tras reintentos: {e}", "fatal")
             delta["token_usage"] = self._accumulate_usage(state.get("token_usage", {}), e.usage)
-            event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
+            await event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
             return delta
 
         delta = self.apply_output(state, output)
@@ -120,7 +120,7 @@ class BaseAgent(ABC):
         delta["current_node"] = self.name
         delta["token_usage"] = self._accumulate_usage(state.get("token_usage", {}), usage)
 
-        event_bus.publish(task_id, TaskEvent(event_type="agent_completed", agent=self.name, message=f"{self.name} completado"))
+        await event_bus.publish(task_id, TaskEvent(event_type="agent_completed", agent=self.name, message=f"{self.name} completado"))
         return delta
 
     def _accumulate_usage(self, current: dict, new: dict) -> dict:
@@ -150,7 +150,7 @@ class BaseAgent(ABC):
                 tool_used = True
                 conversation.append(LLMMessage(role="assistant", content=response.content or ""))
                 for call in response.tool_calls:
-                    event_bus.publish(task_id, TaskEvent(
+                    await event_bus.publish(task_id, TaskEvent(
                         event_type="tool_used", agent=self.name,
                         message=f"Usando tool: {call.name} (args: {call.arguments})",
                     ))

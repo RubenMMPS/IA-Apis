@@ -13,7 +13,7 @@ class TesterAgent:
 
     async def run(self, state: GraphState) -> dict:
         task_id = state["task_id"]
-        event_bus.publish(task_id, TaskEvent(event_type="agent_started", agent=self.name, message="Tester iniciado"))
+        await event_bus.publish(task_id, TaskEvent(event_type="agent_started", agent=self.name, message="Tester iniciado"))
 
         code = state.get("code_artifacts")
         if code is None:
@@ -21,13 +21,13 @@ class TesterAgent:
                 "errors": [ErrorRecord(agent=self.name, message="No hay code_artifacts que testear", severity="fatal")],
                 "current_node": self.name,
             }
-            event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
+            await event_bus.publish(task_id, TaskEvent(event_type="agent_error", agent=self.name, message=delta["errors"][0].message))
             return delta
 
         passed, exit_code, output = await self._runner.run_tests(code.files)
         result = TestResult(passed=passed, exit_code=exit_code, output=output)
 
-        event_bus.publish(task_id, TaskEvent(
+        await event_bus.publish(task_id, TaskEvent(
             event_type="agent_completed", agent=self.name,
             message=f"Tests {'pasaron' if passed else 'fallaron'} (exit_code={exit_code})",
         ))
