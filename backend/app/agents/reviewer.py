@@ -4,6 +4,7 @@ from typing import Literal
 from app.agents.base import BaseAgent
 from app.graph.state.graph_state import GraphState
 from app.graph.state.review import ReviewFeedback
+from app.agents.constraint_checks import check_constraints_violations
 
 
 class ReviewerLLMOutput(BaseModel):
@@ -55,13 +56,22 @@ class ReviewerAgent(BaseAgent):
         return ReviewerLLMOutput
 
     def apply_output(self, state: GraphState, output: ReviewerLLMOutput) -> dict:
-        decision = output.decision
-        if output.constraints_violated:
-            decision = "changes_requested"  # regla de sistema, no delegada solo al LLM
+            plan = state.get("plan")
+            constraints = plan.constraints if plan else []
+            code = state["code_artifacts"]
 
-        feedback = ReviewFeedback(
-            decision=decision,
-            comments=output.comments,
-            constraints_violated=output.constraints_violated,
-        )
-        return {"review_feedback": feedback}
+            auto_violations = check_constraints_violations(constraints, code.files)
+            all_violations = list(output.constraints_violated) + [
+                v for v in auto_violations if v not in output.constraints_violated
+            ]
+
+            decision = output.decision
+            if all_violations:
+                decision = "changes_requested"
+
+            feedback = ReviewFeedback(
+                decision=decision,
+                comments=output.comments,
+                constraints_violated=all_violations,
+            )
+            return {"review_feedback": feedback}
