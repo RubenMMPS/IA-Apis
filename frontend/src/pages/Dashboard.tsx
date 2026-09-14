@@ -6,10 +6,11 @@ import { EventLog } from "../components/EventLog";
 import { TaskResult } from "../components/TaskResult";
 import { CodeViewer } from "../components/CodeViewer";
 import { useTaskEvents } from "../hooks/useTaskEvents";
-import { getTask } from "../api/tasks";
+import { getTask, getTaskEventsHistory } from "../api/tasks";
 import type { Task } from "../types/task";
-import { AGENT_ORDER } from "../types/events";
-import type { AgentName, AgentStatus } from "../types/events";
+import type { TaskEvent } from "../types/events";
+import { deriveAgentStatuses } from "../hooks/deriveAgentStatuses";
+
 
 function LiveTaskView({ taskId }: { taskId: string }) {
   const { events, agentStatuses, retryCounts, isFinished, connectionError } = useTaskEvents(taskId);
@@ -27,17 +28,23 @@ function LiveTaskView({ taskId }: { taskId: string }) {
   );
 }
 
-function FinishedTaskView({ taskId, task }: { taskId: string; task: Task }) {
-  const allStatus: AgentStatus = task.status === "completed" ? "completed" : "error";
-  const agentStatuses = {} as Record<AgentName, AgentStatus>;
-  AGENT_ORDER.forEach((a) => (agentStatuses[a] = allStatus));
+function FinishedTaskView({ taskId }: { taskId: string }) {
+  const [events, setEvents] = useState<TaskEvent[] | null>(null);
+
+  useEffect(() => {
+    getTaskEventsHistory(taskId).then(setEvents).catch(() => setEvents([]));
+  }, [taskId]);
+
+  if (events === null) return <p>Cargando historial...</p>;
+
+  const { agentStatuses, retryCounts } = deriveAgentStatuses(events);
 
   return (
     <>
-      <WorkflowPipeline agentStatuses={agentStatuses} retryCounts={{}} />
-      <p style={{ fontSize: 13, color: "#6b7280", marginTop: 8 }}>
-        Esta tarea ya finalizó — no hay eventos en vivo disponibles, mostrando resultado guardado.
-      </p>
+      <WorkflowPipeline agentStatuses={agentStatuses} retryCounts={retryCounts} />
+      <div style={{ marginTop: 16 }}>
+        <EventLog events={events} />
+      </div>
       <TaskResult taskId={taskId} isFinished={true} />
       <CodeViewer taskId={taskId} isFinished={true} />
     </>
@@ -61,7 +68,7 @@ function TaskView({ taskId }: { taskId: string }) {
       {loading && <p>Cargando...</p>}
       {!loading && !task && <p style={{ color: "#b91c1c" }}>Tarea no encontrada.</p>}
       {!loading && task && (task.status === "completed" || task.status === "failed")
-        ? <FinishedTaskView taskId={taskId} task={task} />
+        ? <FinishedTaskView taskId={taskId} />
         : !loading && task && <LiveTaskView taskId={taskId} />
       }
     </div>

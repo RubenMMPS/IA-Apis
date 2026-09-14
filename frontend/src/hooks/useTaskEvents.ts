@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaskEvent, AgentName, AgentStatus, EventType } from "../types/events";
-import { AGENT_ORDER } from "../types/events";
 import { sseUrl } from "../api/client";
+import { deriveAgentStatuses } from "./deriveAgentStatuses";
 
 interface UseTaskEventsResult {
   events: TaskEvent[];
@@ -49,20 +49,7 @@ useEffect(() => {
     return () => es.close();
   }, [taskId]);
 
-  const agentStatuses = {} as Record<AgentName, AgentStatus>;
-  AGENT_ORDER.forEach((a) => (agentStatuses[a] = "pending"));
-  const retryCounts: Partial<Record<AgentName, number>> = {};
-
-  for (const ev of events) {
-    if (!ev.agent) continue;
-    if (ev.event_type === "agent_started") agentStatuses[ev.agent] = "running";
-    if (ev.event_type === "agent_completed") agentStatuses[ev.agent] = "completed";
-    if (ev.event_type === "agent_error") agentStatuses[ev.agent] = "error";
-    if (ev.event_type === "retry") {
-      retryCounts[ev.agent] = (retryCounts[ev.agent] ?? 1) + 1;
-      agentStatuses[ev.agent] = "pending"; // vuelve a esperar su turno
-    }
-  }
+  const { agentStatuses, retryCounts } = deriveAgentStatuses(events);
 
   const isFinished = events.some((e) => FINISHED_TYPES.includes(e.event_type));
 
