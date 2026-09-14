@@ -1,7 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
-from app.db.models import KnowledgeChunk, Task, TaskStatus
+from app.db.models import KnowledgeChunk, Task, TaskStatus, TaskEventRecord
+from datetime import datetime
 
 
 async def insert_chunk(
@@ -59,3 +60,24 @@ async def update_task_status(
     if estimated_cost_usd is not None:
         task.estimated_cost_usd = estimated_cost_usd
     await session.commit()
+
+async def insert_task_event(
+    session: AsyncSession, task_id: str, event_type: str, agent: str | None,
+    message: str, timestamp: datetime,
+) -> None:
+    record = TaskEventRecord(
+        task_id=task_id, event_type=event_type, agent=agent,
+        message=message, timestamp=timestamp,
+    )
+    session.add(record)
+    await session.commit()
+
+
+async def get_task_events(session: AsyncSession, task_id: str) -> list[TaskEventRecord]:
+    stmt = (
+        select(TaskEventRecord)
+        .where(TaskEventRecord.task_id == task_id)
+        .order_by(TaskEventRecord.timestamp)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
