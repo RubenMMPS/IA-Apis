@@ -3,9 +3,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
-from app.db.repository import create_task, get_task
+from app.db.repository import create_task, get_task, get_task_events
 from app.core.task_executor import InProcessExecutor
-from app.api.schemas import CreateTaskRequest, TaskResponse, CodeArtifactsResponse, TestResultResponse
+from app.api.schemas import CreateTaskRequest, TaskResponse, CodeArtifactsResponse, TestResultResponse, TaskEventResponse
 import json
 from fastapi.responses import StreamingResponse
 from app.core.events import event_bus
@@ -14,6 +14,11 @@ from app.llm.dependencies import get_llm_provider
 from app.embeddings.dependencies import get_embedding_provider
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+@router.get("/{task_id}/events-history", response_model=list[TaskEventResponse])
+async def get_task_events_history(task_id: uuid.UUID, session: AsyncSession = Depends(get_db_session)):
+    records = await get_task_events(session, str(task_id))
+    return [TaskEventResponse.model_validate(r, from_attributes=True) for r in records]
 
 async def _sse_generator(task_id: str):
     async for event in event_bus.subscribe(task_id):

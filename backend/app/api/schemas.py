@@ -48,3 +48,9 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class TaskEventResponse(BaseModel):
+    event_type: str
+    agent: str | None
+    message: str
+    timestamp: datetime
