@@ -150,6 +150,20 @@ infra/
 └── sandbox/             # imagen Docker para ejecución de tests
 ```
 
+## Evaluación (golden set)
+
+`backend/evals/` contiene un runner de evaluación batch que ejecuta el workflow completo contra un conjunto fijo de tareas representativas (`golden_set.json`) y registra, por cada una: si Reviewer aprobó, cuántos intentos de Developer hicieron falta, tokens usados, coste estimado y duración. Los resultados se guardan como JSON con timestamp en `evals/results/`.
+
+```bash
+cd backend
+python -m evals.run_eval                    # ejecuta todo el golden set
+python -m evals.run_eval email-validator     # ejecuta solo un caso, por id
+```
+
+**Hallazgo de esta primera ejecución**: la tasa de convergencia (Developer/Tester logrando tests en verde dentro de 3 intentos) varía significativamente según la complejidad de la tarea y es sensible a la variabilidad inherente del modelo usado (con Groq `openai/gpt-oss-20b`, una muestra mostró 25% de éxito en 4 tareas) — no es un resultado determinista ni estable, y una sola ejecución no es representativa; el valor del golden set está en repetirlo tras cambios (de prompt, modelo, o sandbox) para comparar tendencias, no en un número absoluto puntual. Uso de tokens: reintentos fallidos de Developer contribuyen significativamente al coste total de una tarea (una tarea que fracasa tras 3 intentos puede costar más tokens que varias tareas exitosas).
+
+**Aún no implementado**: evaluación de calidad de código mediante LLM-as-judge independiente (una rúbrica de corrección/legibilidad/adherencia al plan, evaluada por un modelo distinto al que generó el código) — hoy el golden set mide solo señales mecánicas (aprobado/no aprobado, intentos, tokens), no calidad cualitativa. Ver Roadmap.
+
 ## Limitaciones conocidas y hallazgos de validación
 
 Para diagnosticar correctamente un fallo de una tarea, es importante distinguir tres categorías de causa distintas — mezclarlas lleva a "arreglar" lo que no corresponde (por ejemplo, ampliar el sandbox para tapar una desviación del agente):
@@ -175,5 +189,5 @@ Otras limitaciones de diseño, no relacionadas con lo anterior:
 
 ## Roadmap
 
-- [ ] Evaluación offline / golden set con LLM-as-judge
+- [ ] **LLM-as-judge**: extender `evals/run_eval.py` con una evaluación de calidad de código (rúbrica de corrección/legibilidad/adherencia al plan) mediante un modelo evaluador independiente del que generó el código.
 - [ ] **Diseño visual del frontend**: la interfaz actual prioriza funcionalidad sobre estética (HTML semántico con estilos inline mínimos, sin sistema de diseño). Pulir tipografía, espaciado, colores y microinteracciones para que el dashboard sea visualmente atractivo, no solo funcional.
