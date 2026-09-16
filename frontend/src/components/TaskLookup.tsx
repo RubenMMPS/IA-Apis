@@ -10,13 +10,12 @@ export function TaskLookup({ onFound }: { onFound: (taskId: string) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, marginTop: 24 }}>
+    <form onSubmit={handleSubmit} className="lookup-form">
       <input
         value={input} onChange={(e) => setInput(e.target.value)}
-        placeholder="Consultar tarea existente por task_id..."
-        style={{ flex: 1, padding: 8, fontSize: 13 }}
+        placeholder="task_id..."
       />
-      <button type="submit">Buscar</button>
+      <button type="submit" className="btn">buscar</button>
     </form>
   );
 }

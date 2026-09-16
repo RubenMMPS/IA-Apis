@@ -7,12 +7,14 @@ export function WorkflowPipeline({ agentStatuses, retryCounts }: {
   retryCounts: Partial<Record<AgentName, number>>;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+    <div className="pipeline">
       {AGENT_ORDER.map((agent, i) => (
-        <div key={agent} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <AgentNode agent={agent} status={agentStatuses[agent]} retryCount={retryCounts[agent]} />
-          {i < AGENT_ORDER.length - 1 && <span style={{ color: "#9ca3af" }}>→</span>}
-        </div>
+        <>
+          <AgentNode key={agent} agent={agent} status={agentStatuses[agent]} retryCount={retryCounts[agent]} />
+          {i < AGENT_ORDER.length - 1 && (
+            <span className={`pipeline-connector ${agentStatuses[agent] === "completed" ? "filled" : ""}`} />
+          )}
+        </>
       ))}
     </div>
   );

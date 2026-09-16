@@ -2,13 +2,13 @@ import type { TaskEvent } from "../types/events";
 
 export function EventLog({ events }: { events: TaskEvent[] }) {
   return (
-    <div style={{ maxHeight: 300, overflowY: "auto", fontFamily: "monospace", fontSize: 13 }}>
+    <div className="event-log">
       {events.map((ev, i) => (
-        <div key={i} style={{ padding: "4px 0", borderBottom: "1px solid #eee" }}>
-          <span style={{ color: "#6b7280" }}>{new Date(ev.timestamp).toLocaleTimeString()}</span>{" "}
-          <strong>[{ev.event_type}]</strong>{" "}
-          {ev.agent && <span style={{ color: "#3b82f6" }}>{ev.agent}:</span>}{" "}
-          {ev.message}
+        <div key={i} className="event-line">
+          <span className="ts">{new Date(ev.timestamp).toLocaleTimeString()}</span>
+          <span className={`kind ${ev.event_type}`}>{ev.event_type}</span>
+          {ev.agent && <span className="who">{ev.agent}</span>}
+          <span>{ev.message}</span>
         </div>
       ))}
     </div>

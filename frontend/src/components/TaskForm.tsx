@@ -18,13 +18,16 @@ export function TaskForm({ onCreated }: { onCreated: (taskId: string) => void })
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+    <form onSubmit={handleSubmit} className="prompt-form">
+      <span className="prompt-caret">&gt;</span>
       <textarea
         value={text} onChange={(e) => setText(e.target.value)}
-        placeholder="Describe la tarea de programación..."
-        rows={3} style={{ flex: 1, padding: 8 }}
+        placeholder="describe la tarea de programación..."
+        rows={2}
       />
-      <button type="submit" disabled={loading}>{loading ? "Creando..." : "Crear tarea"}</button>
+      <button type="submit" className="btn btn-primary" disabled={loading}>
+        {loading ? "..." : "run"}
+      </button>
     </form>
   );
 }

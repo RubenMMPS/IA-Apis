@@ -7,10 +7,9 @@ import { TaskResult } from "../components/TaskResult";
 import { CodeViewer } from "../components/CodeViewer";
 import { useTaskEvents } from "../hooks/useTaskEvents";
 import { getTask, getTaskEventsHistory } from "../api/tasks";
+import { deriveAgentStatuses } from "../hooks/deriveAgentStatuses";
 import type { Task } from "../types/task";
 import type { TaskEvent } from "../types/events";
-import { deriveAgentStatuses } from "../hooks/deriveAgentStatuses";
-
 
 function LiveTaskView({ taskId }: { taskId: string }) {
   const { events, agentStatuses, retryCounts, isFinished, connectionError } = useTaskEvents(taskId);
@@ -18,10 +17,8 @@ function LiveTaskView({ taskId }: { taskId: string }) {
   return (
     <>
       <WorkflowPipeline agentStatuses={agentStatuses} retryCounts={retryCounts} />
-      {connectionError && <p style={{ color: "#b91c1c" }}>{connectionError}</p>}
-      <div style={{ marginTop: 16 }}>
-        <EventLog events={events} />
-      </div>
+      {connectionError && <p style={{ color: "var(--state-error)", fontSize: 12 }}>{connectionError}</p>}
+      <EventLog events={events} />
       <TaskResult taskId={taskId} isFinished={isFinished} />
       <CodeViewer taskId={taskId} isFinished={isFinished} />
     </>
@@ -35,16 +32,14 @@ function FinishedTaskView({ taskId }: { taskId: string }) {
     getTaskEventsHistory(taskId).then(setEvents).catch(() => setEvents([]));
   }, [taskId]);
 
-  if (events === null) return <p>Cargando historial...</p>;
+  if (events === null) return <p style={{ color: "var(--text-faint)", fontSize: 12 }}>cargando historial...</p>;
 
   const { agentStatuses, retryCounts } = deriveAgentStatuses(events);
 
   return (
     <>
       <WorkflowPipeline agentStatuses={agentStatuses} retryCounts={retryCounts} />
-      <div style={{ marginTop: 16 }}>
-        <EventLog events={events} />
-      </div>
+      <EventLog events={events} />
       <TaskResult taskId={taskId} isFinished={true} />
       <CodeViewer taskId={taskId} isFinished={true} />
     </>
@@ -56,17 +51,14 @@ function TaskView({ taskId }: { taskId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getTask(taskId)
-      .then(setTask)
-      .catch(() => setTask(null))
-      .finally(() => setLoading(false));
+    getTask(taskId).then(setTask).catch(() => setTask(null)).finally(() => setLoading(false));
   }, [taskId]);
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <p style={{ fontSize: 13, color: "#6b7280" }}>Task ID: {taskId}</p>
-      {loading && <p>Cargando...</p>}
-      {!loading && !task && <p style={{ color: "#b91c1c" }}>Tarea no encontrada.</p>}
+    <div>
+      <div className="task-meta">{taskId}</div>
+      {loading && <p style={{ color: "var(--text-faint)", fontSize: 12 }}>cargando...</p>}
+      {!loading && !task && <p style={{ color: "var(--state-error)", fontSize: 12 }}>tarea no encontrada</p>}
       {!loading && task && (task.status === "completed" || task.status === "failed")
         ? <FinishedTaskView taskId={taskId} />
         : !loading && task && <LiveTaskView taskId={taskId} />
@@ -79,8 +71,11 @@ export function Dashboard() {
   const [taskId, setTaskId] = useState<string | null>(null);
 
   return (
-    <div style={{ maxWidth: 800, margin: "40px auto", padding: 16 }}>
-      <h1>AI Software Engineering Team</h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <h1>ai-swe-team</h1>
+        <span className="tagline">planner · researcher · architect · developer · tester · reviewer</span>
+      </header>
       <TaskForm onCreated={setTaskId} />
       <TaskLookup onFound={setTaskId} />
       {taskId && <TaskView key={taskId} taskId={taskId} />}

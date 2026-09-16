@@ -13,14 +13,14 @@ export function TaskResult({ taskId, isFinished }: { taskId: string; isFinished:
   if (!isFinished || !task) return null;
 
   return (
-    <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: task.status === "completed" ? "#f0fdf4" : "#fef2f2" }}>
-      <strong>Estado final: {task.status}</strong>
+    <div className={`result-panel ${task.status}`}>
+      <span className="status-word">{task.status}</span>
       {task.result_summary && <p>{task.result_summary}</p>}
-      {task.error_message && <p style={{ color: "#b91c1c" }}>{task.error_message}</p>}
+      {task.error_message && <p style={{ color: "var(--state-error)" }}>{task.error_message}</p>}
       {task.total_tokens != null && (
-      <p style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
-        Tokens usados: {task.total_tokens.toLocaleString()} · Coste estimado: ${task.estimated_cost_usd?.toFixed(6)}
-      </p>
+        <div className="cost-line">
+          {task.total_tokens.toLocaleString()} tokens · ${task.estimated_cost_usd?.toFixed(6)}
+        </div>
       )}
     </div>
   );
