@@ -185,6 +185,7 @@ Para diagnosticar correctamente un fallo de una tarea, es importante distinguir 
 Otras limitaciones de diseño, no relacionadas con lo anterior:
 - **`EventBus` en memoria de un solo proceso**: la cola en vivo (para SSE) no sobrevive a un reinicio del backend ni escala a múltiples workers. Sin embargo, **los eventos ya se persisten en la tabla `task_events`**, así que consultar una tarea antigua (`TaskLookup`) reconstruye el pipeline con el detalle exacto por-agente (incluyendo número real de reintentos), no una aproximación.
 - **Sin migraciones formales** (Alembic): el esquema se crea con `Base.metadata.create_all()`.
+- **Checkpoints con allowlist explícita de tipos**: el checkpointer de Postgres usa `allowed_msgpack_modules` (mitigación de CVE-2026-28277) para restringir la deserialización a los modelos Pydantic propios del estado (`Plan`, `CodeArtifacts`, etc.). Si se añade un campo nuevo al estado con un tipo Pydantic propio, hay que añadirlo a la lista en `app/main.py`, o su deserialización quedará bloqueada.
 
 - **`estimated_cost_usd` es orientativo, no facturación real**: usa una tabla de precios aproximada (`app/core/pricing.py`) por nombre de modelo, y no distingue si algunos tokens de la tarea se generaron vía el proveedor de fallback (usa siempre la tarifa del proveedor primario configurado).
 
