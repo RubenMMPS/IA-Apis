@@ -1,0 +1,6 @@
+[
+  {"id": "sum-numbers", "request": "Crea una función en Python que sume dos números", "constraints_expected": []},
+  {"id": "email-validator", "request": "Crea una función en Python que valide si un email es correcto", "constraints_expected": []},
+  {"id": "todo-in-memory", "request": "Crea una API CRUD con FastAPI para gestionar tareas (to-do list), con persistencia únicamente en memoria mediante un diccionario. No utilices bases de datos ni SQLAlchemy.", "constraints_expected": ["en memoria", "sin SQLAlchemy"]},
+  {"id": "auth-jwt", "request": "Crea una API REST con FastAPI para autenticación de usuarios: registro, login con JWT, endpoints protegidos, persistencia en memoria.", "constraints_expected": ["en memoria"]}
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "email-validator",
+    "success": false,
+    "constraints_expected": false,
+    "constraints_detected": true,
+    "developer_attempts": 3,
+    "tests_passed": false,
+    "review_decision": null,
+    "constraints_violated": [],
+    "total_tokens": 37904,
+    "duration_seconds": 111.9,
+    "error": "no aprobado",
+    "errors_detail": []
+  }
+]

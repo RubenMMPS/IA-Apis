@@ -1,0 +1,54 @@
+[
+  {
+    "id": "sum-numbers",
+    "success": true,
+    "constraints_expected": false,
+    "constraints_detected": true,
+    "developer_attempts": 1,
+    "tests_passed": true,
+    "review_decision": "approved",
+    "constraints_violated": [],
+    "total_tokens": 5021,
+    "duration_seconds": 9.8,
+    "error": null
+  },
+  {
+    "id": "email-validator",
+    "success": false,
+    "constraints_expected": false,
+    "constraints_detected": true,
+    "developer_attempts": 3,
+    "tests_passed": false,
+    "review_decision": null,
+    "constraints_violated": [],
+    "total_tokens": 25683,
+    "duration_seconds": 125.2,
+    "error": "no aprobado"
+  },
+  {
+    "id": "todo-in-memory",
+    "success": false,
+    "constraints_expected": true,
+    "constraints_detected": true,
+    "developer_attempts": 3,
+    "tests_passed": false,
+    "review_decision": null,
+    "constraints_violated": [],
+    "total_tokens": 24896,
+    "duration_seconds": 164.8,
+    "error": "no aprobado"
+  },
+  {
+    "id": "auth-jwt",
+    "success": false,
+    "constraints_expected": true,
+    "constraints_detected": true,
+    "developer_attempts": 3,
+    "tests_passed": false,
+    "review_decision": null,
+    "constraints_violated": [],
+    "total_tokens": 57312,
+    "duration_seconds": 201.2,
+    "error": "no aprobado"
+  }
+]
