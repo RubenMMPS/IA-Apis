@@ -8,6 +8,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.llm.dependencies import get_llm_provider
 from app.embeddings.dependencies import get_embedding_provider
 from app.graph.build_graph import build_graph
+from evals.judge import judge_code
 
 GOLDEN_SET_PATH = Path(__file__).parent / "golden_set.json"
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -39,17 +40,31 @@ async def run_single_case(case: dict, llm, embeddings) -> dict:
             "id": case["id"], "success": False, "error": f"{type(e).__name__}: {e}",
             "duration_seconds": round(time.monotonic() - start, 1),
             "errors_detail": [],
+            "judge_score": None,
         }
     duration = time.monotonic() - start
 
     review = final_state.get("review_feedback")
     test_results = final_state.get("test_results")
     plan = final_state.get("plan")
+    code = final_state.get("code_artifacts")
+    architecture_spec = final_state.get("architecture_spec")
     usage = final_state.get("token_usage", {})
     errors_detail = [f"[{e.agent}] {e.message[:150]}" for e in final_state.get("errors", [])]
 
     success = bool(review and review.decision == "approved")
     constraints_detected = bool(plan and plan.constraints) if case.get("constraints_expected") else True
+
+    judge_score = None
+    if success and code:
+        try:
+            score = await judge_code(
+                llm, case["request"], architecture_spec, code,
+                plan.constraints if plan else [],
+            )
+            judge_score = score.model_dump()
+        except Exception as e:
+            judge_score = {"error": f"{type(e).__name__}: {e}"}
 
     return {
         "id": case["id"],
@@ -64,6 +79,7 @@ async def run_single_case(case: dict, llm, embeddings) -> dict:
         "duration_seconds": round(duration, 1),
         "error": None if success else (final_state.get("errors", [])[-1].message if final_state.get("errors") else "no aprobado"),
         "errors_detail": errors_detail,
+        "judge_score": judge_score,
     }
 
 
@@ -84,6 +100,10 @@ async def main(case_ids: list[str] | None = None):
         if result.get("errors_detail"):
             for err in result["errors_detail"]:
                 print(f"     ERROR: {err}")
+        if result.get("judge_score") and "error" not in result["judge_score"]:
+            js = result["judge_score"]
+            print(f"     judge: correctness={js['correctness']} readability={js['readability']} "
+                  f"plan_adherence={js['plan_adherence']} constraints={js['constraints_compliance']}")
 
     RESULTS_DIR.mkdir(exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -94,9 +114,16 @@ async def main(case_ids: list[str] | None = None):
     passed = sum(1 for r in results if r["success"])
     total_tokens = sum(r["total_tokens"] for r in results)
 
+    scored = [r["judge_score"] for r in results if r.get("judge_score") and "error" not in r["judge_score"]]
+
     print(f"\n=== Resumen ===")
     print(f"Tasa de éxito: {passed}/{total} ({100*passed/total:.0f}%)" if total else "Sin casos ejecutados")
     print(f"Tokens totales: {total_tokens}")
+    if scored:
+        avg_correctness = sum(s["correctness"] for s in scored) / len(scored)
+        avg_readability = sum(s["readability"] for s in scored) / len(scored)
+        print(f"Correctness media (solo casos evaluados): {avg_correctness:.1f}/5")
+        print(f"Readability media (solo casos evaluados): {avg_readability:.1f}/5")
     print(f"Resultados guardados en: {output_path}")
 
 
