@@ -163,7 +163,7 @@ python -m evals.run_eval email-validator     # ejecuta solo un caso, por id
 
 **Hallazgo de esta primera ejecución**: la tasa de convergencia (Developer/Tester logrando tests en verde dentro de 3 intentos) varía significativamente según la complejidad de la tarea y es sensible a la variabilidad inherente del modelo usado (con Groq `openai/gpt-oss-20b`, una muestra mostró 25% de éxito en 4 tareas) — no es un resultado determinista ni estable, y una sola ejecución no es representativa; el valor del golden set está en repetirlo tras cambios (de prompt, modelo, o sandbox) para comparar tendencias, no en un número absoluto puntual. Uso de tokens: reintentos fallidos de Developer contribuyen significativamente al coste total de una tarea (una tarea que fracasa tras 3 intentos puede costar más tokens que varias tareas exitosas).
 
-**Aún no implementado**: evaluación de calidad de código mediante LLM-as-judge independiente (una rúbrica de corrección/legibilidad/adherencia al plan, evaluada por un modelo distinto al que generó el código) — hoy el golden set mide solo señales mecánicas (aprobado/no aprobado, intentos, tokens), no calidad cualitativa. Ver Roadmap.
+**Aún no implementado**: nada pendiente en esta área — el golden set ahora incluye un LLM-as-judge independiente (`evals/judge.py`) que puntúa cada tarea exitosa en 4 dimensiones (corrección, legibilidad, adherencia al plan, cumplimiento de restricciones), con un prompt que acota explícitamente el alcance de "restricciones" a las explícitas del usuario, para evitar que el juez penalice hallazgos de código (como incompatibilidades de versión de Python) en la dimensión equivocada de la rúbrica.
 
 ## Limitaciones conocidas y hallazgos de validación
 
@@ -191,4 +191,4 @@ Otras limitaciones de diseño, no relacionadas con lo anterior:
 
 ## Roadmap
 
-- [ ] LLM-as-judge: extender `evals/run_eval.py` con una evaluación de calidad de código (rúbrica de corrección/legibilidad/adherencia al plan) mediante un modelo evaluador independiente del que generó el código.
+No quedan features planificadas pendientes del recorrido inicial de este proyecto. Posibles extensiones futuras no priorizadas: ejecución del golden set en CI, comparación automática entre ejecuciones para detectar regresiones de calidad, soporte de más proveedores LLM.
