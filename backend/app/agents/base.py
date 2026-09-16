@@ -30,6 +30,15 @@ def _normalize_json_text(text: str) -> str:
     match = re.search(r"\{.*\}", text, re.DOTALL)
     return match.group(0) if match else text
 
+def _fix_double_escaped_newlines(output: BaseModel) -> BaseModel:
+    """Corrige archivos de código donde el LLM devolvió '\\n' literal
+    (doble escapado) en vez de saltos de línea reales."""
+    if not hasattr(output, "files"):
+        return output
+    for f in output.files:
+        if "\n" not in f.content and f.content.count("\\n") >= 3:
+            f.content = f.content.replace("\\n", "\n").replace('\\"', '"').replace("\\t", "\t")
+    return output
 
 class BaseAgent(ABC):
     name: AgentName
@@ -160,7 +169,8 @@ class BaseAgent(ABC):
 
             try:
                 clean = _normalize_json_text(response.content)
-                return schema.model_validate_json(clean), usage
+                parsed = schema.model_validate_json(clean)
+                return _fix_double_escaped_newlines(parsed), usage
             except (ValidationError, ValueError) as e:
                 last_error = e
                 conversation.append(LLMMessage(role="assistant", content=response.content))
